@@ -24,32 +24,45 @@ The logarithmic resistor array and optional MOSFET configuration allow measureme
 The analyzer measures the I-V characteristics by sweeping through different load resistances. The blue line indicates the Maximum Power Point (MPP), which is automatically calculated and displayed. Image source: [ZyMOS](https://commons.wikimedia.org/wiki/User:ZyMOS), CC BY-SA 3.0.
 
 ## Hardware Overview
-```
+```markdown
 +-------------+     +----------+     +-----------+
 |  Solar      |     | Resistor |     |   MUX    |
 |  Cell       |---->|  Array   |---->| CD74HC   |
 | (DUT)       |     | (R5-R20) |     | 4067     |
 +-------------+     +----------+     +-----------+
        |                                  |
-       |                                  v
-       |                           +--------------+
-       +-------------------------->|  ESP32-S3    |
-       |                          |    Mini      |
-       |                          +--------------+
-       |                                 ^
-       v                                |
-   +---------+                  +---------------+
-   | MOSFET  |                  | OLED Display  |
-   | Circuit |                  | & Controls    |
-   +---------+                  +---------------+
+       |                                  |
+       |                                  |
+       |           +---------+            |
+       +---------->| MOSFET  |            |
+                   | Circuit |            |
+                   +---------+            |
+                        |                 |
+                        |                 |
+                        |                 v
+                        |        +--------------+
+                        +------->|  ESP32-S3    |
+                                 |    Mini      |
+                                 |   (ADC1)     |
+                                 +--------------+
+                                      ^
+                                      |
+                                      |
+                                +---------------+
+                                | UI Controls   |
+                                | OLED, Pots,   |
+                                |   Button      |
+                                +---------------+
 ```
 
 ## Key Components
+```markdown
 - ESP32-S3 Mini
 - CD74HC4067 16-channel multiplexer
 - SSD1306 OLED display
 - 16 precision resistors (83Ω - 10.3kΩ)
 - MOSFET for low-resistance measurements
+```
 
 ## Technical Notes
 
