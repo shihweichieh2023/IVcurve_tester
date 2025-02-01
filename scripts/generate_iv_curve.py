@@ -25,11 +25,13 @@ ax1.plot(V, I, 'b-', label='I-V Curve')
 ax1.set_xlabel('Voltage (V)')
 ax1.set_ylabel('Current (A)', color='b')
 ax1.tick_params(axis='y', labelcolor='b')
+ax1.set_ylim(0, 12)  # Set y-axis limit for current
 
 # Plot power curve
 ax2.plot(V, P, 'r-', label='Power')
 ax2.set_ylabel('Power (W)', color='r')
 ax2.tick_params(axis='y', labelcolor='r')
+ax2.set_ylim(0, 6)  # Set lower y-axis limit for power to make curve appear lower
 
 # Plot MPP point
 ax2.plot(mpp_v, mpp_p, 'ro', label=f'MPP ({mpp_v:.2f}V, {mpp_p:.2f}W)')
