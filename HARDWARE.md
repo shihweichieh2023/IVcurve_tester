@@ -5,7 +5,7 @@
 This I-V curve analyzer is designed for characterizing low-power energy sources using an ESP32-S3 Mini board. It uses a multiplexer to switch between different load resistors and can optionally use a MOSFET for additional low-resistance measurements.
 
 ## Block Diagram
-```
+```ascii
 +-------------+     +----------+     +-----------+
 |  Solar      |     | Resistor |     |   MUX    |
 |  Cell       |---->|  Array   |---->| CD74HC   |
@@ -23,9 +23,9 @@ This I-V curve analyzer is designed for characterizing low-power energy sources 
                         |                 v
                         |        +--------------+
                         +------->|  ESP32-S3    |
-                                 |    Mini      |
-                                 |   (ADC1)     |
-                                 +--------------+
+                                |    Mini      |
+                                |   (ADC1)     |
+                                +--------------+
                                       ^
                                       |
                                       |
@@ -37,9 +37,8 @@ This I-V curve analyzer is designed for characterizing low-power energy sources 
 ```
 
 ## Detailed Connections
-```
 ### ESP32-S3 Mini Pin Assignments
-```
+```markdown
 GPIO1  -> MUX SIG (ADC input)
 GPIO2  -> Potentiometer Y
 GPIO3  -> Potentiometer X
@@ -54,7 +53,7 @@ GPIO0  -> Button (with pull-up)
 ```
 
 ### CD74HC4067 Multiplexer
-```
+```ascii
       +-----U-----+
 CH7   |1  []   24| VCC
 CH6   |2       23| CH8
@@ -73,7 +72,7 @@ GND   |12      13| S3
 
 ### Resistor Array
 Connected to MUX channels, values in ohms:
-```
+```markdown
 R5  ->    83Ω
 R6  ->    95Ω
 R7  ->   114Ω
@@ -93,7 +92,7 @@ R20 -> 10317Ω
 ```
 
 ### MOSFET Circuit Configuration
-```
+```ascii
 Solar Cell+
     |
     |------------+----------------+
