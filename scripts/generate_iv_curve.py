@@ -16,17 +16,33 @@ mpp_v = V[mpp_idx]
 mpp_i = I[mpp_idx]
 mpp_p = P[mpp_idx]
 
-# Create plot
-plt.figure(figsize=(8, 6))
-plt.plot(V, I, 'b-', label='I-V Curve')
-plt.plot([0, mpp_v], [I[0], mpp_i], 'r--', label='MPP Line')
-plt.plot(mpp_v, mpp_i, 'ro', label=f'MPP ({mpp_v:.2f}V, {mpp_i:.2f}A)')
+# Create figure with two y-axes
+fig, ax1 = plt.subplots(figsize=(8, 6))
+ax2 = ax1.twinx()
 
-plt.grid(True)
-plt.xlabel('Voltage (V)')
-plt.ylabel('Current (A)')
-plt.title('Solar Cell I-V Curve with Maximum Power Point')
-plt.legend()
+# Plot I-V curve
+ax1.plot(V, I, 'b-', label='I-V Curve')
+ax1.set_xlabel('Voltage (V)')
+ax1.set_ylabel('Current (A)', color='b')
+ax1.tick_params(axis='y', labelcolor='b')
+
+# Plot power curve
+ax2.plot(V, P, 'r-', label='Power')
+ax2.set_ylabel('Power (W)', color='r')
+ax2.tick_params(axis='y', labelcolor='r')
+
+# Plot MPP point
+ax2.plot(mpp_v, mpp_p, 'ro', label=f'MPP ({mpp_v:.2f}V, {mpp_p:.2f}W)')
+
+# Add grid
+ax1.grid(True)
+
+# Add legends
+lines1, labels1 = ax1.get_legend_handles_labels()
+lines2, labels2 = ax2.get_legend_handles_labels()
+ax1.legend(lines1 + lines2, labels1 + labels2, loc='upper right')
+
+plt.title('Solar Cell I-V Curve and Power')
 
 # Save plot
 plt.savefig('images/IV_curve_example.png', dpi=300, bbox_inches='tight')

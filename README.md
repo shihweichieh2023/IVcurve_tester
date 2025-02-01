@@ -21,7 +21,7 @@ The logarithmic resistor array and optional MOSFET configuration allow measureme
 ## Example I-V Curve
 ![Example I-V curve showing Maximum Power Point](./images/IV_curve_example.png)
 
-The analyzer measures the I-V characteristics by sweeping through different load resistances. The blue line indicates the Maximum Power Point (MPP), which is automatically calculated and displayed during measurements.
+The analyzer measures both the I-V characteristics (blue curve) and power output (red curve) by sweeping through different load resistances. The Maximum Power Point (MPP) is identified at the peak of the power curve, representing the optimal operating point for maximum power output. This example was generated using the included Python script in `scripts/generate_iv_curve.py`.
 
 ## Hardware Overview
 ```markdown
