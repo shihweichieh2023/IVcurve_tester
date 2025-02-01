@@ -6,27 +6,38 @@ This I-V curve analyzer is designed for characterizing low-power energy sources 
 
 ## Block Diagram
 ```
-+-------------+     +----------+     +-----------+     +-----------+
-|  Solar      |     | Resistor |     |   MUX    |     | Voltage   |
-|  Cell       |---->|  Array   |---->| CD74HC   |---->| Divider   |
-| (DUT)       |     | (R5-R20) |     | 4067     |     | (1:1)     |
-+-------------+     +----------+     +-----------+     +-----------+
-       |                                                     |
-       |                                                     v
-       |                                           +--------------+
-       +----------------------------------------->|  ESP32-S3    |
-       |                                          |    Mini      |
-       |                                          +--------------+
-       |                                                 ^
-       v                                                |
-   +---------+                                  +---------------+
-   | MOSFET  |                                  | OLED Display  |
-   | Circuit |                                  | & Controls    |
-   +---------+                                  +---------------+
++-------------+     +----------+     +-----------+
+|  Solar      |     | Resistor |     |   MUX    |
+|  Cell       |---->|  Array   |---->| CD74HC   |
+| (DUT)       |     | (R5-R20) |     | 4067     |
++-------------+     +----------+     +-----------+
+       |                                  |
+       |                                  |
+       |                                  |
+       |           +---------+            |
+       +---------->| MOSFET  |            |
+                   | Circuit |            |
+                   +---------+            |
+                        |                 |
+                        |                 |
+                        |                 v
+                        |        +--------------+
+                        +------->|  ESP32-S3    |
+                                 |    Mini      |
+                                 |   (ADC1)     |
+                                 +--------------+
+                                      ^
+                                      |
+                                      |
+                                +---------------+
+                                | UI Controls   |
+                                | OLED, Pots,   |
+                                |   Button      |
+                                +---------------+
 ```
 
 ## Detailed Connections
-
+```
 ### ESP32-S3 Mini Pin Assignments
 ```
 GPIO1  -> MUX SIG (ADC input)
@@ -113,12 +124,9 @@ Solar Cell+
   - Connects to MUX COM pin (9)
   - Connects to MOSFET source
 
-### Voltage Measurement
-- MUX SIG pin (1) connects to ESP32 ADC (GPIO1)
-- A voltage divider (1:1 ratio) is used before the ADC input
-- This halves the input voltage to stay within ESP32's 3.3V range
-- Raw ADC readings are multiplied by 2 in software to get actual voltage
-- Maximum measurable voltage: 6.6V (3.3V * 2)
+### Power Supply
+- ESP32-S3 Mini is powered via USB (5V)
+- Solar cell or DUT is only connected to measurement inputs
 
 ### OLED Display (SSD1306)
 - VCC -> 3.3V
