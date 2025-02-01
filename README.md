@@ -88,4 +88,8 @@ MIT License - See [LICENSE](LICENSE) file
 See [HARDWARE.md](HARDWARE.md) for detailed wiring and setup instructions.
 
 ## Credits
-Code and hardware design by Marc Dusseiller ([@dusjagr](https://github.com/dusjagr)), with assistance from the Windsurf AI coding assistant. This collaboration demonstrates how AI tools can enhance open hardware development while maintaining human creativity and expertise at the core of the project.
+Code and hardware design by Marc Dusseiller (@dusjagr), with assistance from the Windsurf AI coding assistant. This collaboration demonstrates how AI tools can enhance open hardware development while maintaining human creativity and expertise at the core of the project.
+
+## References
+- I-V curve image from [PVEducation.org](https://www.pveducation.org/pvcdrom/solar-cell-operation/iv-curve)
+
