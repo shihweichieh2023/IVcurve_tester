@@ -19,9 +19,9 @@ The logarithmic resistor array and optional MOSFET configuration allow measureme
 - Optional MOSFET for low-resistance measurements
 
 ## Example I-V Curve
-![Example I-V curve showing Maximum Power Point](./images/IV_curve_example.png)
+![Typical solar cell I-V curve showing short circuit current (Isc), open circuit voltage (Voc), and Maximum Power Point (MPP)](./images/typical_IV_curve.jpg)
 
-The analyzer measures both the I-V characteristics (blue curve) and power output (red curve) by sweeping through different load resistances. The Maximum Power Point (MPP) is identified at the peak of the power curve, representing the optimal operating point for maximum power output. This example was generated using the included Python script in `scripts/generate_iv_curve.py`.
+The analyzer measures both the I-V characteristics (blue curve) and power output (red curve) by sweeping through different load resistances. The Maximum Power Point (MPP) represents the optimal operating point where the product of voltage and current yields the highest power output.
 
 ## Hardware Overview
 ```markdown
