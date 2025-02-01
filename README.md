@@ -17,6 +17,7 @@ The logarithmic resistor array and optional MOSFET configuration allow measureme
 - OLED display with live readings
 - Logarithmic resistor array for wide measurement range
 - Optional MOSFET for low-resistance measurements
+- Built-in voltage divider for measuring higher voltage sources (>3.3V)
 
 ## Example I-V Curve
 ![Typical solar cell I-V curve showing short circuit current (Isc), open circuit voltage (Voc), and Maximum Power Point (MPP)](./images/typical_IV_curve.jpg)
@@ -92,4 +93,3 @@ Code and hardware design by Marc Dusseiller (@dusjagr), with assistance from the
 
 ## References
 - I-V curve image from [PVEducation.org](https://www.pveducation.org/pvcdrom/solar-cell-operation/iv-curve)
-

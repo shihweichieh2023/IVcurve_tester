@@ -2,7 +2,7 @@
 =================================
 
 ## Overview
-This I-V curve analyzer is designed for characterizing low-power energy sources using an ESP32-S3 Mini board. It uses a multiplexer to switch between different load resistors and can optionally use a MOSFET for additional low-resistance measurements.
+This I-V curve analyzer is designed for characterizing low-power energy sources using an ESP32-S3 Mini board. It uses a multiplexer to switch between different load resistors and can optionally use a MOSFET for additional low-resistance measurements. A voltage divider is implemented to ensure the input voltage stays within the ESP32's ADC range (0-3.3V), allowing measurement of higher voltage sources while maintaining accuracy.
 
 ## Block Diagram
 ```ascii
