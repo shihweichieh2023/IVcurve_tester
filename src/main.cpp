@@ -193,14 +193,14 @@ void loop() {
     if (voc > maxVoltage) {
       maxVoltage = voc;
     }
-/*
+
     display.fillRect(102, 48, 26, 16, SSD1306_BLACK);
     display.setCursor(104, 48);
-    display.println("mV:");
+    display.println("Voc:");
     display.setCursor(104, 56);
-    display.println(voc);
+    display.println(maxVoltage);
     display.display();
-*/
+
   }
 
   // type out to serial, if mode is selected through button press once
@@ -445,7 +445,7 @@ void showBootScreen() {
   display.println("Solar Cell Analyzer");
   // "Version 1.0 2024" is 15 characters * 6 pixels = 90 pixels
   display.setCursor((128 - 90)/2 - 4, 55);   // Shifted 4 pixels left
-  display.println("Version 1.0 2024");
+  display.println("Version 1.0 2025");
   
   display.display();
 }
