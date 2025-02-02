@@ -3,10 +3,19 @@ I-V curve analyzer for low-power energies
 Array of resistors and MUX through 15 of them, and 1 open circuit
 Display on OLED screen.
 
-ToDo:
-* add button and knob for interface control
-* Send data through the web
+Features:
+* Real-time I-V curve display with adjustable scaling
+* Maximum Power Point (MPP) tracking
+* Maximum current and voltage measurements
+* Interactive display with button control
+* Serial data output mode
 
+Hardware Setup:
+* ESP32-S3 Mini board
+* SSD1306 OLED display (128x64)
+* 4051 Multiplexer for resistor array
+* Two potentiometers for X/Y scaling
+* Button for serial mode toggle
 */
 
 #include <SPI.h>
@@ -15,9 +24,14 @@ ToDo:
 #include <Adafruit_SSD1306.h>
 #include "hackteria_logo.h"
 
+// Display Configuration
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 #define SCREEN_ADDRESS 0x3C // OLED display I2C address
+
+// I2C Pin Definitions
+#define SDA_PIN 8   // Default I2C SDA for S3-Mini
+#define SCL_PIN 9   // Default I2C SCL for S3-Mini
 
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
@@ -31,45 +45,43 @@ int readMux(int channel);
 void showBootScreen();
 void showCreditsScreen();
 
-//Mux control pins
-int s0 = 4;     // Changed for S3-Mini
-int s1 = 5;     // Changed for S3-Mini
-int s2 = 6;     // Changed for S3-Mini
-int s3 = 7;     // Changed for S3-Mini
-int SIG_pin = 1;    // Changed for S3-Mini (ADC)
-int POTY_pin = 2;   // Changed for S3-Mini (ADC)
-int POTX_pin = 3;   // Changed for S3-Mini (ADC)
-int BUTT_pin = 11;  // Changed for S3-Mini (moved to avoid I2C pins)
-int TPI_pin = 10;   // Changed for S3-Mini
-int sig = 0;
-int overlay = 0;
-int scaleY;
-int scaleX;
-int average = 3;
-int delayAveraging = 10;
-int delayLoop = 100;
-bool serialMode = 0;
-bool buttonState = false; // Current button state
+// Pin Definitions for ESP32-S3 Mini
+int s0 = 4;      // MUX control pin S0
+int s1 = 5;      // MUX control pin S1
+int s2 = 6;      // MUX control pin S2
+int s3 = 7;      // MUX control pin S3
+int SIG_pin = 1; // ADC input for voltage measurement
+int POTY_pin = 2;// ADC input for Y-axis scaling
+int POTX_pin = 3;// ADC input for X-axis scaling
+int BUTT_pin = 11;// Digital input for mode button
+int TPI_pin = 10;// Test Point Input control
+
+// Measurement and Display Variables
+int sig = 0;     // Current ADC reading
+int overlay = 0; // Display overlay state
+int scaleY;      // Y-axis (current) scaling factor from potentiometer
+int scaleX;      // X-axis (voltage) scaling factor from potentiometer
+int average = 3; // Number of readings to average for noise reduction
+int delayAveraging = 10;  // Delay between averaged readings (ms)
+int delayLoop = 100;      // Delay between measurement cycles (ms)
+
+// Interface Control Variables
+bool serialMode = 0;          // Serial output mode flag
+bool buttonState = false;     // Current button state
 bool lastButtonState = false; // Previous button state
+unsigned long lastPressTime = 0;      // Last button press timestamp
+const unsigned long recentThreshold = 2000; // Button press timeout (ms)
 
-unsigned long lastPressTime = 0; // Timestamp of the last button press
-const unsigned long recentThreshold = 200; // Time in ms to consider as "recent"
+// Global Measurement Variables
+float vocValues[20];   // Array to store voltage measurements
+float icalValues[20];  // Array to store calculated currents
+float powValues[20];   // Array to store power values
+float maxPower = 0;    // Maximum power point tracking
+float maxCurrent = 0;  // Maximum current tracking
+float maxVoltage = 0;  // Maximum voltage tracking
+int mppIndex = 0;      // Index of maximum power point
 
-// Using default I2C pins for S3-Mini
-#define SDA_PIN 8   // Default I2C SDA for S3-Mini
-#define SCL_PIN 9   // Default I2C SCL for S3-Mini
-
-int vocValues[20];
-int icalValues[20];
-int powValues[20];
-float maxPower = 0;  // Global variable for maximum power
-int mppIndex = 0;    // Global variable for MPP index
-float maxCurrent = 0; // Global variable for maximum current
-float maxVoltage = 0; // Global variable for maximum voltage
-
-// Resistors as measured through the MUX. 
-//Should re-measure and average a bit.
-
+// Resistor array values in ohms (measured through MUX)
 int resistorValues5V[20]{
 11636,
 7420,
@@ -155,7 +167,7 @@ void setup() {
 }
 
 void loop() {
-  // read the interface
+  // Read scaling potentiometers
   scaleX = analogReadMilliVolts(POTX_pin);
   scaleY = analogReadMilliVolts(POTY_pin);
   digitalWrite(TPI_pin, 0);
@@ -166,19 +178,23 @@ void loop() {
   maxVoltage = 0;
   int mppIndex = 0;
   
-  // go through the 16 MUX channels and read analog value
-  // there is a voltage divider before the A0 pin to half the voltage to keep it below 3.3V
+  // Measure through all resistors in the array
+  // Channel 0-19: From highest to lowest resistance
   for(int i = 19; i >= 0; i --){
+    // Read voltage through current MUX channel
     int sig = readMux(i);
 
-    // just kinda calibrated this from other multimeter measurement.
-    //int voc = (sig * 2900) / 4095 * 2; 
+    // Convert ADC reading to millivolts (calibrated factor of 2)
     int voc = sig * 2;
     vocValues[i] = voc;
+    
+    // Calculate current through known resistor (I = V/R)
     float ical = voc * 1000 / resistorValues[19-i];
-    float powi = voc * (voc * 1000 / resistorValues[19-i]);
     icalValues[i] = ical;
-    powValues[i] = powi / 1000;
+    
+    // Calculate power at this point (P = V * I)
+    float powi = voc * (voc * 1000 / resistorValues[19-i]);
+    powValues[i] = powi / 1000;  // Convert to milliwatts
     
     // Track maximum power point
     if (powValues[i] > maxPower) {
@@ -194,13 +210,13 @@ void loop() {
       maxVoltage = voc;
     }
 
+    // Display real-time Voc measurement
     display.fillRect(102, 48, 26, 16, SSD1306_BLACK);
     display.setCursor(104, 48);
     display.println("Voc:");
     display.setCursor(104, 56);
     display.println(maxVoltage);
     display.display();
-
   }
 
   // type out to serial, if mode is selected through button press once
@@ -364,49 +380,53 @@ void drawIVline()
 void drawBackground()
 {  
   display.clearDisplay();
-  // Main frame - reduced height to 44 pixels
+  // Draw main frame for I-V curve (100x44 pixels)
   display.drawRect(0, 0, 100, 44, SSD1306_WHITE);
   
-  // Grid lines - vertical (more visible dotted lines)
-  for (int i = 0; i < 100; i += 20) {  // 5 vertical sections
-    for (int j = 0; j < 44; j += 2) {   // Back to 2-pixel spacing
-      if (i > 0) display.drawPixel(i, j, WHITE);
+  // Draw grid lines - vertical (5 sections)
+  for (int i = 0; i < 100; i += 20) {  
+    for (int j = 0; j < 44; j += 2) {   
+      if (i > 0) display.drawPixel(i, j, WHITE);  // Dotted line pattern
     }
   }
   
-  // Grid lines - horizontal
-  for (int i = 0; i < 44; i += 11) {    // 4 horizontal sections
-    for (int j = 0; j < 100; j += 2) {  // Back to 2-pixel spacing
-      if (i > 0) display.drawPixel(j, i, WHITE);
+  // Draw grid lines - horizontal (4 sections)
+  for (int i = 0; i < 44; i += 11) {    
+    for (int j = 0; j < 100; j += 2) {  
+      if (i > 0) display.drawPixel(j, i, WHITE);  // Dotted line pattern
     }
   }
 
-  // Right side info panel
+  // Draw right-side information panel
   display.setTextSize(1);
-  display.setCursor(104, 0);
-  display.println("I-V");
+  display.setTextColor(WHITE);
+  
+  // Display maximum current (top)
   display.setCursor(104, 12);
   display.println("Isc:");
   display.setCursor(104, 20);
   display.print(maxCurrent/1000.0, 1);
+  
+  // Display maximum power (middle)
   display.setCursor(104, 30);
   display.println("Pow:");
   display.setCursor(104, 38);
-  float maxTheoretical = maxCurrent * maxVoltage / 1000;  // Divide by 1000 since voltage is in mV
+  float maxTheoretical = maxCurrent * maxVoltage / 1000;  // Calculate theoretical max power
   display.print(maxTheoretical, 1);
 
-  // MPP values at the bottom
+  // Display MPP values at the bottom
   display.setTextSize(1);
   display.setCursor(0, 47);
   display.print("MPP: ");
-  display.print(maxPower, 1);  // Using actual MPP
+  display.print(maxPower, 1);  // Actual measured MPP
   display.println("mW");
   
+  // Display voltage and current at MPP
   display.setCursor(0, 56);
   display.print("V:");
-  display.print(vocValues[mppIndex], 1);  // Voltage at MPP index
+  display.print(vocValues[mppIndex], 1);  // Voltage at MPP
   display.print("mV  I:");
-  display.print(icalValues[mppIndex], 0);  // Current at MPP index
+  display.print(icalValues[mppIndex], 0);  // Current at MPP
   display.print("uA");
   
   display.display();
