@@ -29,6 +29,8 @@ void drawBackground();
 void drawIVline();
 void drawIVline1();
 int readMux(int channel);
+void showBootScreen();
+void showCreditsScreen();
 
 //Mux control pins
 int s0 = 4;     // Changed for S3-Mini
@@ -38,8 +40,8 @@ int s3 = 7;     // Changed for S3-Mini
 int SIG_pin = 1;    // Changed for S3-Mini (ADC)
 int POTY_pin = 2;   // Changed for S3-Mini (ADC)
 int POTX_pin = 3;   // Changed for S3-Mini (ADC)
-int BUTT_pin = 0;   // Changed for S3-Mini
-int TPI_pin = 8;    // Changed for S3-Mini
+int BUTT_pin = 11;  // Changed for S3-Mini (moved to avoid I2C pins)
+int TPI_pin = 10;   // Changed for S3-Mini
 int sig = 0;
 int overlay = 0;
 int scaleY;
@@ -53,12 +55,16 @@ bool lastButtonState = false; // Previous button state
 unsigned long lastPressTime = 0; // Timestamp of the last button press
 const unsigned long recentThreshold = 200; // Time in ms to consider as "recent"
 
-#define SDA_PIN 9    // Changed for S3-Mini
-#define SCL_PIN 10   // Changed for S3-Mini
+// Using default I2C pins for S3-Mini
+#define SDA_PIN 8   // Default I2C SDA for S3-Mini
+#define SCL_PIN 9   // Default I2C SCL for S3-Mini
 
 int vocValues[20];
 int icalValues[20];
 int powValues[20];
+float maxPower = 0;  // Global variable for maximum power
+int mppIndex = 0;    // Global variable for MPP index
+float maxCurrent = 0; // Global variable for maximum current
 
 // Resistors as measured through the MUX. 
 //Should re-measure and average a bit.
@@ -136,12 +142,15 @@ void setup() {
   delay(100);
   showLogo_hackteria();
   delay(1000);
-  display.clearDisplay(); // Make sure the display is cleared
+  showBootScreen();
+  delay(2000);
+  showCreditsScreen();
+  delay(2000);
+  display.clearDisplay();
   display.display();
   Serial.println("    ");
   Serial.println("=========== Starting I-V Measurement ===========");
   drawBackground();
-  
 }
 
 void loop() {
@@ -151,7 +160,6 @@ void loop() {
   digitalWrite(TPI_pin, 0);
   // go through the 16 MUX channels and read analog value
   // there is a voltage divider before the A0 pin to half the voltage to keep it below 3.3V
-  float maxPower = 0;
   int mppIndex = 0;
   
   for(int i = 19; i >= 0; i --){
@@ -171,6 +179,11 @@ void loop() {
       maxPower = powValues[i];
       mppIndex = i;
     }
+    
+    // Track maximum current
+    if (ical > maxCurrent) {
+      maxCurrent = ical;
+    }
 
     display.fillRect(102, 48, 26, 16, SSD1306_BLACK);
     display.setCursor(104, 48);
@@ -179,27 +192,6 @@ void loop() {
     display.println(voc);
     display.display();
   }
-
-  // Display MPP values
-  display.fillRect(0, 0, 100, 32, SSD1306_BLACK);  // Clear top-left area
-  display.setTextSize(1);
-  
-  display.setCursor(0, 0);
-  display.print("MPP: ");
-  display.print(maxPower, 1);
-  display.println("mW");
-  
-  display.setCursor(0, 10);
-  display.print("Vmpp: ");
-  display.print(vocValues[mppIndex]);
-  display.println("mV");
-  
-  display.setCursor(0, 20);
-  display.print("Impp: ");
-  display.print(icalValues[mppIndex], 1);
-  display.println("uA");
-  
-  display.display();
 
   // type out to serial, if mode is selected through button press once
   if (serialMode) {
@@ -351,11 +343,11 @@ void drawIVline()
   int scale_Y = (scaleY+100) / 2;
   int scale_X = (scaleX+200) / 50;
   for(int i = 19; i > 0; i --){
-    display.drawLine(vocValues[i]/scale_X,64-icalValues[i]/scale_Y,vocValues[i-1]/scale_X,64-icalValues[i-1]/scale_Y,WHITE);
-    display.drawRect(vocValues[i-1]/scale_X-1, 64-icalValues[i-1]/scale_Y-1, 3, 3, WHITE);
+    display.drawLine(vocValues[i]/scale_X,44-icalValues[i]/scale_Y,vocValues[i-1]/scale_X,44-icalValues[i-1]/scale_Y,WHITE);
+    display.drawRect(vocValues[i-1]/scale_X-1, 44-icalValues[i-1]/scale_Y-1, 3, 3, WHITE);
   }
-  display.drawLine(vocValues[0]/scale_X,64-icalValues[0]/scale_Y,0,64-icalValues[0]/scale_Y,WHITE);
-  display.drawRect(0, 64-icalValues[0]/scale_Y-1, 3, 3, WHITE);
+  display.drawLine(vocValues[0]/scale_X,44-icalValues[0]/scale_Y,0,44-icalValues[0]/scale_Y,WHITE);
+  display.drawRect(0, 44-icalValues[0]/scale_Y-1, 3, 3, WHITE);
   display.display();
 }
 
@@ -373,30 +365,54 @@ void drawIVline1()
 }
 
 void drawBackground()
-{  display.drawRect(0, 0, 100, 64, SSD1306_WHITE);
-  for (int i = 2; i < 100; i = i + 5) {
-        display.drawPixel(i, 24, WHITE);
-        display.drawPixel(i, 44, WHITE);
-        display.drawPixel(i, 4, WHITE);
-
-        display.drawPixel(20, i, WHITE);
-        display.drawPixel(40, i, WHITE);
-        display.drawPixel(60, i, WHITE);
-        display.drawPixel(80, i, WHITE);
+{  
+  display.clearDisplay();
+  // Main frame - reduced height to 44 pixels
+  display.drawRect(0, 0, 100, 44, SSD1306_WHITE);
+  
+  // Grid lines - vertical (more visible dotted lines)
+  for (int i = 0; i < 100; i += 20) {  // 5 vertical sections
+    for (int j = 0; j < 44; j += 2) {   // Back to 2-pixel spacing
+      if (i > 0) display.drawPixel(i, j, WHITE);
     }
+  }
+  
+  // Grid lines - horizontal
+  for (int i = 0; i < 44; i += 11) {    // 4 horizontal sections
+    for (int j = 0; j < 100; j += 2) {  // Back to 2-pixel spacing
+      if (i > 0) display.drawPixel(j, i, WHITE);
+    }
+  }
+
+  // Right side info panel
   display.setTextSize(1);
   display.setCursor(104, 0);
   display.println("I-V");
   display.setCursor(104, 12);
   display.println("Isc:");
   display.setCursor(104, 20);
-  display.println(icalValues[0]/1000);
+  display.print(maxCurrent/1000.0, 1);
   display.setCursor(104, 30);
   display.println("MPP:");
   display.setCursor(104, 38);
-  display.println(powValues[6]);
+  display.print(maxPower, 1);
+
+  // MPP values at the bottom
+  display.setTextSize(1);
+  display.setCursor(0, 47);
+  display.print("MPP: ");
+  display.print(maxPower, 1);
+  display.println("mW");
+  
+  display.setCursor(0, 56);
+  display.print("V:");
+  display.print(vocValues[mppIndex]);
+  display.print("mV  I:");
+  display.print(icalValues[mppIndex], 1);
+  display.print("uA");
+  
   display.display();
-  }
+}
 
 void showLogo_hackteria(){
   display.clearDisplay(); // Make sure the display is cleared
@@ -408,4 +424,57 @@ void showLogo_hackteria(){
   // Update the display
   display.display();
   delay(30);
+}
+
+void showBootScreen() {
+  display.clearDisplay();
+  
+  // Draw a frame
+  display.drawRect(0, 0, 128, 64, WHITE);
+  
+  // Title
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.setCursor(10, 4);
+  display.println("I-V CURVE");
+  display.setCursor(15, 22);
+  display.println("SCANNER");
+  
+  // Smaller text at bottom - centered
+  display.setTextSize(1);
+  // "Solar Cell Analyzer" is 17 characters * 6 pixels = 102 pixels
+  display.setCursor((128 - 102)/2 - 4, 45);  // Shifted 4 pixels left
+  display.println("Solar Cell Analyzer");
+  // "Version 1.0 2024" is 15 characters * 6 pixels = 90 pixels
+  display.setCursor((128 - 90)/2 - 4, 55);   // Shifted 4 pixels left
+  display.println("Version 1.0 2024");
+  
+  display.display();
+}
+
+void showCreditsScreen() {
+  display.clearDisplay();
+  
+  // Draw a frame
+  display.drawRect(0, 0, 128, 64, WHITE);
+  
+  // Main credit in large text
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.setCursor(6, 16);  // Moved left from center position
+  display.println("by dusjagr");
+  
+  // Organization name in small text, centered in three lines
+  display.setTextSize(1);
+  // "Center for" is 10 chars * 6 pixels = 60 pixels
+  display.setCursor((128 - 60)/2, 38);
+  display.println("Center for");
+  // "Alternative" is 11 chars * 6 pixels = 66 pixels
+  display.setCursor((128 - 66)/2, 46);
+  display.println("Alternative");
+  // "Coconut Research" is 15 chars * 6 pixels = 90 pixels
+  display.setCursor((128 - 90)/2, 54);
+  display.println("Coconut Research");
+  
+  display.display();
 }
