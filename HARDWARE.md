@@ -23,17 +23,17 @@ This I-V curve analyzer is designed for characterizing low-power energy sources 
                         |                 v
                         |        +--------------+
                         +------->|  ESP32-S3    |
-                                |    Mini      |
-                                |   (ADC1)     |
-                                +--------------+
-                                      ^
-                                      |
-                                      |
-                                +---------------+
-                                | UI Controls   |
-                                | OLED, Pots,   |
-                                |   Button      |
-                                +---------------+
+                                 |    Mini      |
+                                 |   (ADC1)     |
+                                 +--------------+
+                                       ^
+                                       |
+                                       |
+                                 +---------------+
+                                 | UI Controls   |
+                                 | OLED, Pots,   |
+                                 |   Button      |
+                                 +---------------+
 ```
 
 ## Detailed Connections
@@ -98,19 +98,19 @@ Solar Cell+
     |------------+----------------+
     |            |                |
     |         Resistor         MOSFET
-    |           Array         +-------+
+    |           Array        +-------+
     |            |           |Gate   |
     |            |           |       |<----GPIO8 (TPI)
     |            v           |       |      |
-    |           MUX         |Drain  |      |
+    |           MUX          |Drain  |      |
     |            |           |       |      |
     |            |           |Source |      |
     |            |           +-------+      |
     |            |               |          |
     |            |               |          |
     +------------+---------------+----------+
-                                |
-                               GND
+                                 |
+                                GND
 ```
 
 ## Connection Details
