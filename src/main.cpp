@@ -27,7 +27,6 @@ void initDisplay();
 void showLogo_hackteria();
 void drawBackground();
 void drawIVline();
-void drawIVline1();
 int readMux(int channel);
 void showBootScreen();
 void showCreditsScreen();
@@ -48,6 +47,7 @@ int scaleY;
 int scaleX;
 int average = 3;
 int delayAveraging = 10;
+int delayLoop = 100;
 bool serialMode = 0;
 bool buttonState = false; // Current button state
 bool lastButtonState = false; // Previous button state
@@ -65,6 +65,7 @@ int powValues[20];
 float maxPower = 0;  // Global variable for maximum power
 int mppIndex = 0;    // Global variable for MPP index
 float maxCurrent = 0; // Global variable for maximum current
+float maxVoltage = 0; // Global variable for maximum voltage
 
 // Resistors as measured through the MUX. 
 //Should re-measure and average a bit.
@@ -158,10 +159,15 @@ void loop() {
   scaleX = analogReadMilliVolts(POTX_pin);
   scaleY = analogReadMilliVolts(POTY_pin);
   digitalWrite(TPI_pin, 0);
-  // go through the 16 MUX channels and read analog value
-  // there is a voltage divider before the A0 pin to half the voltage to keep it below 3.3V
+  
+  // Reset maximum values at the start of each measurement cycle
+  maxPower = 0;
+  maxCurrent = 0;
+  maxVoltage = 0;
   int mppIndex = 0;
   
+  // go through the 16 MUX channels and read analog value
+  // there is a voltage divider before the A0 pin to half the voltage to keep it below 3.3V
   for(int i = 19; i >= 0; i --){
     int sig = readMux(i);
 
@@ -180,17 +186,21 @@ void loop() {
       mppIndex = i;
     }
     
-    // Track maximum current
+    // Track maximum current and voltage
     if (ical > maxCurrent) {
       maxCurrent = ical;
     }
-
+    if (voc > maxVoltage) {
+      maxVoltage = voc;
+    }
+/*
     display.fillRect(102, 48, 26, 16, SSD1306_BLACK);
     display.setCursor(104, 48);
-    display.println("Voc:");
+    display.println("mV:");
     display.setCursor(104, 56);
     display.println(voc);
     display.display();
+*/
   }
 
   // type out to serial, if mode is selected through button press once
@@ -254,7 +264,7 @@ void loop() {
     overlay = 0;
   }
   drawIVline();
-  delay(10);
+  delay(delayLoop);
 
 }
 
@@ -351,19 +361,6 @@ void drawIVline()
   display.display();
 }
 
-void drawIVline1()
-{
-  display.drawLine(5,5,25,6,WHITE);
-  display.drawLine(25,6,47,10,WHITE);
-  display.drawLine(25,6,47,10,WHITE);
-  display.drawLine(47,10,55,14,WHITE);
-  display.drawLine(55,14,60,20,WHITE);
-  display.drawLine(60,20,67,30,WHITE);
-  display.drawLine(67,30,73,40,WHITE);
-  display.drawLine(73,40,78,60,WHITE);
-  display.display();
-}
-
 void drawBackground()
 {  
   display.clearDisplay();
@@ -393,22 +390,23 @@ void drawBackground()
   display.setCursor(104, 20);
   display.print(maxCurrent/1000.0, 1);
   display.setCursor(104, 30);
-  display.println("MPP:");
+  display.println("Pow:");
   display.setCursor(104, 38);
-  display.print(maxPower, 1);
+  float maxTheoretical = maxCurrent * maxVoltage / 1000;  // Divide by 1000 since voltage is in mV
+  display.print(maxTheoretical, 1);
 
   // MPP values at the bottom
   display.setTextSize(1);
   display.setCursor(0, 47);
   display.print("MPP: ");
-  display.print(maxPower, 1);
+  display.print(maxPower, 1);  // Using actual MPP
   display.println("mW");
   
   display.setCursor(0, 56);
   display.print("V:");
-  display.print(vocValues[mppIndex]);
+  display.print(vocValues[mppIndex], 1);  // Voltage at MPP index
   display.print("mV  I:");
-  display.print(icalValues[mppIndex], 1);
+  display.print(icalValues[mppIndex], 0);  // Current at MPP index
   display.print("uA");
   
   display.display();
