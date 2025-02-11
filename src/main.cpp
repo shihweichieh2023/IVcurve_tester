@@ -23,6 +23,10 @@ Hardware Setup:
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include "hackteria_logo.h"
+#include <WiFi.h>
+#include <ESPmDNS.h>
+#include "config.h"
+#include "IVserver.h"
 
 // Display Configuration
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
@@ -36,12 +40,17 @@ Hardware Setup:
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
 
+// Global IV Server instance
+//IVserver server(80);  // Create an IV server on port 80
+
 // Function declarations
 void initDisplay();
 void showLogo_hackteria();
 void drawBackground();
 void drawIVline();
 int readMux(int channel);
+void setupNetwork();
+void handleIVserver();
 void showBootScreen();
 void showCreditsScreen();
 
@@ -63,7 +72,7 @@ int scaleY;      // Y-axis (current) scaling factor from potentiometer
 int scaleX;      // X-axis (voltage) scaling factor from potentiometer
 int average = 3; // Number of readings to average for noise reduction
 int delayAveraging = 10;  // Delay between averaged readings (ms)
-int delayLoop = 100;      // Delay between measurement cycles (ms)
+int delayLoop = 300;      // Delay between measurement cycles (ms)
 
 // Interface Control Variables
 bool serialMode = 0;          // Serial output mode flag
@@ -155,18 +164,24 @@ void setup() {
   delay(100);
   showLogo_hackteria();
   delay(1000);
+  setupNetwork();
+  setupIVserver();  // Initialize our IV curve web server
   showBootScreen();
-  delay(2000);
+  delay(1000);
   showCreditsScreen();
-  delay(2000);
+  delay(1000);
   display.clearDisplay();
   display.display();
   Serial.println("    ");
   Serial.println("=========== Starting I-V Measurement ===========");
   drawBackground();
+
 }
 
 void loop() {
+  // Handle IV server requests
+  handleIVserver();
+  
   // Read scaling potentiometers
   scaleX = analogReadMilliVolts(POTX_pin);
   scaleY = analogReadMilliVolts(POTY_pin);
@@ -176,112 +191,40 @@ void loop() {
   maxPower = 0;
   maxCurrent = 0;
   maxVoltage = 0;
-  int mppIndex = 0;
   
-  // Measure through all resistors in the array
-  // Channel 0-19: From highest to lowest resistance
-  for(int i = 19; i >= 0; i --){
-    // Read voltage through current MUX channel
-    int sig = readMux(i);
-
-    // Convert ADC reading to millivolts (calibrated factor of 2)
-    int voc = sig * 2;
-    vocValues[i] = voc;
+  // Measure through all resistors
+  for (int i = 0; i < 16; i++) {
+    readMux(i);
+    vocValues[i] = sig * 3.3 / 4096;  // Convert ADC reading to voltage
+    icalValues[i] = vocValues[i] / resistorValues[i] * 1000;  // Calculate current in mA
+    powValues[i] = vocValues[i] * icalValues[i];  // Calculate power
     
-    // Calculate current through known resistor (I = V/R)
-    float ical = voc * 1000 / resistorValues[19-i];
-    icalValues[i] = ical;
-    
-    // Calculate power at this point (P = V * I)
-    float powi = voc * (voc * 1000 / resistorValues[19-i]);
-    powValues[i] = powi / 1000;  // Convert to milliwatts
-    
-    // Track maximum power point
+    // Update maximum values
     if (powValues[i] > maxPower) {
       maxPower = powValues[i];
       mppIndex = i;
     }
+    if (icalValues[i] > maxCurrent) maxCurrent = icalValues[i];
+    if (vocValues[i] > maxVoltage) maxVoltage = vocValues[i];
     
-    // Track maximum current and voltage
-    if (ical > maxCurrent) {
-      maxCurrent = ical;
-    }
-    if (voc > maxVoltage) {
-      maxVoltage = voc;
-    }
-
-    // Display real-time Voc measurement
-    display.fillRect(102, 48, 26, 16, SSD1306_BLACK);
-    display.setCursor(104, 48);
-    display.println("Voc:");
-    display.setCursor(104, 56);
-    display.println(maxVoltage);
-    display.display();
+    delay(delayAveraging);
   }
-
-  // type out to serial, if mode is selected through button press once
-  if (serialMode) {
-    Serial.println("    ");
-    Serial.println("=========== V meas===========");
-    
-    for(int i = 19; i >= 0; i --){
-      Serial.println(vocValues[i]);
-    }  
-    
-    Serial.println("    ");
-    Serial.println("=========== I cal ===========");
-    for(int i = 19; i >= 0; i --){
-      Serial.println(icalValues[i]);
-    }
-
-    Serial.println("=========== POW2 ===========");
-    for(int i = 19; i >= 0; i --){
-      Serial.println(powValues[i]);
-    }
-
-    Serial.println("=========== MPP Details ===========");
-    Serial.print("Maximum Power: ");
-    Serial.print(maxPower, 1);
-    Serial.println(" mW");
-    Serial.print("MPP Voltage: ");
-    Serial.print(vocValues[mppIndex]);
-    Serial.println(" mV");
-    Serial.print("MPP Current: ");
-    Serial.print(icalValues[mppIndex], 1);
-    Serial.println(" uA");
-    Serial.print("Resistor at MPP: ");
-    Serial.print(resistorValues[19-mppIndex]);
-    Serial.println(" ohm");
-    Serial.println("================================");
-    
-    delay(10);
-    serialMode = 0;
-  }
-
-  //put MUX into open circuit Channel 0
-  digitalWrite(s0, 0);
-  digitalWrite(s1, 0);
-  digitalWrite(s2, 0);
-  digitalWrite(s3, 0);
-  digitalWrite(TPI_pin, 0);
   
-  /*
-  digitalWrite(TPI_pin, 1);
-  int TPI_val = analogReadMilliVolts(SIG_pin);
-  Serial.println("    ");
-  Serial.println(TPI_val * 2);
-  */
-  //Display curve on OLED
-  overlay = overlay + 1;
-  if (overlay == 1){
-    
-    display.clearDisplay();
-    drawBackground();
-    overlay = 0;
-  }
+  // Update IV server with new measurement data
+  IVData data;
+  data.maxPower = maxPower;
+  data.maxCurrent = maxCurrent;
+  data.maxVoltage = maxVoltage;
+  data.vocValues = vocValues;
+  data.icalValues = icalValues;
+  data.powValues = powValues;
+  data.numPoints = 16;  // number of measurement points
+  updateIVserverData(data);
+  
+  // Draw the I-V curve on OLED
   drawIVline();
+  
   delay(delayLoop);
-
 }
 
 int readMux(int channel){
@@ -348,7 +291,8 @@ int readMux(int channel){
   }
 
   //return the value
-  return val / average;
+  sig = val / average;
+  return sig;
 }
 
 void initDisplay()
@@ -364,16 +308,48 @@ void initDisplay()
 }
 
 void drawIVline()
-{ //display.clearDisplay();
-  //drawBackground();
+{
+  display.clearDisplay();  // Clear the display buffer
+  drawBackground();       // Redraw the background
+  
   int scale_Y = (scaleY+100) / 2;
   int scale_X = (scaleX+200) / 50;
-  for(int i = 19; i > 0; i --){
-    display.drawLine(vocValues[i]/scale_X,44-icalValues[i]/scale_Y,vocValues[i-1]/scale_X,44-icalValues[i-1]/scale_Y,WHITE);
-    display.drawRect(vocValues[i-1]/scale_X-1, 44-icalValues[i-1]/scale_Y-1, 3, 3, WHITE);
+  
+  // Draw the I-V curve points and lines
+  for(int i = 15; i > 0; i--) {
+    display.drawLine(
+      vocValues[i]/scale_X,
+      44-icalValues[i]/scale_Y,
+      vocValues[i-1]/scale_X,
+      44-icalValues[i-1]/scale_Y,
+      WHITE
+    );
+    display.drawRect(
+      vocValues[i-1]/scale_X-1,
+      44-icalValues[i-1]/scale_Y-1,
+      3,
+      3,
+      WHITE
+    );
   }
-  display.drawLine(vocValues[0]/scale_X,44-icalValues[0]/scale_Y,0,44-icalValues[0]/scale_Y,WHITE);
-  display.drawRect(0, 44-icalValues[0]/scale_Y-1, 3, 3, WHITE);
+  
+  // Draw the first point and line to Y-axis
+  display.drawLine(
+    vocValues[0]/scale_X,
+    44-icalValues[0]/scale_Y,
+    0,
+    44-icalValues[0]/scale_Y,
+    WHITE
+  );
+  display.drawRect(
+    0,
+    44-icalValues[0]/scale_Y-1,
+    3,
+    3,
+    WHITE
+  );
+  
+  // Update the display
   display.display();
 }
 
@@ -495,4 +471,48 @@ void showCreditsScreen() {
   display.println("Coconut Research");
   
   display.display();
+}
+
+void setupNetwork() {
+  // Connect to WiFi
+  Serial.println();
+  Serial.print("Connecting to ");
+  Serial.println(WIFI_SSID);
+  
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0,0);
+  display.print("Connecting");
+  display.display();
+  
+  // Wait for connection
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+    display.print(".");
+    display.display();
+  }
+  
+  Serial.println("");
+  Serial.print("Connected to ");
+  Serial.println(WIFI_SSID);
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  // Initialize mDNS
+  if (MDNS.begin("ivcurve")) {
+    Serial.println("mDNS responder started");
+    Serial.println("You can access the server at: http://ivcurve.local");
+  }
+  
+  display.clearDisplay();
+  display.setCursor(0,0);
+  display.println("Connected!");
+  display.println(WiFi.localIP());
+  display.println("ivcurve.local");
+  display.display();
+  delay(2000);
 }
