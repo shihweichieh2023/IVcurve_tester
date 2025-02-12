@@ -35,8 +35,5 @@ fp-info-cache
 *.xml
 *.csv
 
-# Gerber export folder
-**/gerber*/
-
 # Backups
 *-backups/
