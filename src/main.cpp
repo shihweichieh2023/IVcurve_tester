@@ -24,8 +24,10 @@ Hardware Setup:
 #include <Adafruit_SSD1306.h>
 #include "hackteria_logo.h"
 #include <WiFi.h>
+#include <WebServer.h>
 #include <ESPmDNS.h>
 #include "config.h"
+#include "board_config.h"
 #include "IVserver.h"
 
 // Display Configuration
@@ -54,16 +56,16 @@ void handleIVserver();
 void showBootScreen();
 void showCreditsScreen();
 
-// Pin Definitions for ESP32-S3 Mini
-int s0 = 2;      // MUX control pin S0
-int s1 = 6;      // MUX control pin S1
-int s2 = 4;      // MUX control pin S2
-int s3 = 5;      // MUX control pin S3
-int SIG_pin = 1; // ADC input for voltage measurement
-int POTY_pin = 16;// ADC input for Y-axis scaling
-int POTX_pin = 18;// ADC input for X-axis scaling
-int BUTT_pin = 35;// Digital input for mode button
-int TPI_pin = 10;// Test Point Input control
+// Pin assignments from board configuration
+int s0 = PIN_MUX_S0;      // MUX control pin S0
+int s1 = PIN_MUX_S1;      // MUX control pin S1
+int s2 = PIN_MUX_S2;      // MUX control pin S2
+int s3 = PIN_MUX_S3;      // MUX control pin S3
+int SIG_pin = PIN_SIG;    // ADC input for voltage measurement
+int POTY_pin = PIN_POT_Y; // ADC input for Y-axis scaling
+int POTX_pin = PIN_POT_X; // ADC input for X-axis scaling
+int BUTT_pin = PIN_BUTTON;// Digital input for mode button
+int TPI_pin = PIN_TPI;    // Test Point Input control
 
 // Measurement and Display Variables
 int sig = 0;     // Current ADC reading

@@ -2,7 +2,14 @@
 =================================
 
 ## Overview
-This I-V curve analyzer is designed for characterizing low-power energy sources using an ESP32-S3 Mini board. It uses a multiplexer to switch between different load resistors and can optionally use a MOSFET for additional low-resistance measurements. A voltage divider is implemented to ensure the input voltage stays within the ESP32's ADC range (0-3.3V), allowing measurement of higher voltage sources while maintaining accuracy.
+This I-V curve analyzer is designed for characterizing low-power energy sources using either an ESP32-S3 Mini or ESP32-C3 Super Mini board. It uses a multiplexer (CD74HC4067, with planned upgrade to ADG706) to switch between different load resistors and can optionally use a MOSFET for additional low-resistance measurements. A voltage divider is implemented to ensure the input voltage stays within the ESP32's ADC range (0-3.3V), allowing measurement of higher voltage sources while maintaining accuracy.
+
+## Supported Hardware
+The firmware supports two board configurations:
+1. ESP32-S3 Mini (default)
+2. ESP32-C3 Super Mini
+
+To select your board, edit the `include/board_config.h` file and uncomment the appropriate board definition.
 
 ## Block Diagram
 ```ascii
@@ -36,22 +43,35 @@ This I-V curve analyzer is designed for characterizing low-power energy sources 
                                  +---------------+
 ```
 
-## Detailed Connections
-### ESP32-S3 Mini Pin Assignments
+## Pin Assignments
+
+### ESP32-S3 Mini
 ```markdown
-GPIO1  -> MUX SIG (ADC input)
-GPIO2  -> Potentiometer Y
-GPIO3  -> Potentiometer X
-GPIO4  -> MUX S0
-GPIO5  -> MUX S1
-GPIO6  -> MUX S2
-GPIO7  -> MUX S3
-GPIO8  -> MOSFET Gate (TPI)
-GPIO9  -> OLED SDA
-GPIO10 -> OLED SCL
-GPIO0  -> Button (with pull-up)
+PIN_MUX_S0  (2)  -> MUX control pin S0
+PIN_MUX_S1  (6)  -> MUX control pin S1
+PIN_MUX_S2  (4)  -> MUX control pin S2
+PIN_MUX_S3  (5)  -> MUX control pin S3
+PIN_SIG     (1)  -> ADC input for voltage measurement
+PIN_POT_Y   (16) -> ADC input for Y-axis scaling
+PIN_POT_X   (18) -> ADC input for X-axis scaling
+PIN_BUTTON  (35) -> Digital input for mode button
+PIN_TPI     (10) -> Test Point Input control
 ```
 
+### ESP32-C3 Super Mini
+```markdown
+PIN_MUX_S0  (2) -> MUX control pin S0
+PIN_MUX_S1  (3) -> MUX control pin S1
+PIN_MUX_S2  (4) -> MUX control pin S2
+PIN_MUX_S3  (5) -> MUX control pin S3
+PIN_SIG     (1) -> ADC input for voltage measurement
+PIN_POT_Y   (6) -> ADC input for Y-axis scaling
+PIN_POT_X   (7) -> ADC input for X-axis scaling
+PIN_BUTTON  (8) -> Digital input for mode button
+PIN_TPI     (9) -> Test Point Input control
+```
+
+## Detailed Connections
 ### CD74HC4067 Multiplexer
 ```ascii
       +-----U-----+
