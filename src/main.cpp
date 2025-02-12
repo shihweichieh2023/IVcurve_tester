@@ -521,7 +521,13 @@ void setupNetwork() {
   Serial.println(WIFI_SSID);
   
   WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  
+  // Handle both open and password-protected networks
+  if (strlen(WIFI_PASSWORD) > 0) {
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  } else {
+    WiFi.begin(WIFI_SSID);  // For open networks
+  }
   
   display.clearDisplay();
   display.setTextSize(1);
