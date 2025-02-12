@@ -76,7 +76,7 @@
 			(mirror no)
 			(drillshape 0)
 			(scaleselection 1)
-			(outputdirectory "./gerber")
+			(outputdirectory "./gerber_MUX-ADG706")
 		)
 	)
 	(net 0 "")

@@ -98,7 +98,7 @@ void handleRoot() {
                     document.getElementById('measurements').innerHTML = `
                         <div class="measurement-card">
                             <div>Maximum Power</div>
-                            <div class="measurement-value">${data.maxPower.toFixed(3)} mW</div>
+                            <div class="measurement-value">${(data.maxPower/1000).toFixed(3)} mW</div>
                         </div>
                         <div class="measurement-card">
                             <div>Maximum Current</div>
@@ -106,14 +106,14 @@ void handleRoot() {
                         </div>
                         <div class="measurement-card">
                             <div>Maximum Voltage</div>
-                            <div class="measurement-value">${data.maxVoltage.toFixed(3)} V</div>
+                            <div class="measurement-value">${(data.maxVoltage/1000).toFixed(3)} V</div>
                         </div>
                     `;
 
                     // Update plot
                     if (data.voltage && data.current) {
                         const trace1 = {
-                            x: data.voltage,
+                            x: data.voltage.map(v => v/1000), // Convert millivolts to volts
                             y: data.current,
                             mode: 'lines+markers',
                             name: 'I-V Curve',
@@ -122,8 +122,16 @@ void handleRoot() {
 
                         const layout = {
                             title: 'I-V Curve',
-                            xaxis: {title: 'Voltage (V)'},
-                            yaxis: {title: 'Current (mA)'},
+                            xaxis: {
+                                title: 'Voltage (V)',
+                                rangemode: 'tozero',
+                                autorange: true
+                            },
+                            yaxis: {
+                                title: 'Current (mA)',
+                                rangemode: 'tozero',
+                                autorange: true
+                            },
                             margin: {t: 40},
                             plot_bgcolor: '#f8f9fa',
                             paper_bgcolor: '#ffffff'

@@ -55,14 +55,14 @@ void showBootScreen();
 void showCreditsScreen();
 
 // Pin Definitions for ESP32-S3 Mini
-int s0 = 4;      // MUX control pin S0
-int s1 = 5;      // MUX control pin S1
-int s2 = 6;      // MUX control pin S2
-int s3 = 7;      // MUX control pin S3
+int s0 = 2;      // MUX control pin S0
+int s1 = 6;      // MUX control pin S1
+int s2 = 4;      // MUX control pin S2
+int s3 = 5;      // MUX control pin S3
 int SIG_pin = 1; // ADC input for voltage measurement
-int POTY_pin = 2;// ADC input for Y-axis scaling
-int POTX_pin = 3;// ADC input for X-axis scaling
-int BUTT_pin = 11;// Digital input for mode button
+int POTY_pin = 16;// ADC input for Y-axis scaling
+int POTX_pin = 18;// ADC input for X-axis scaling
+int BUTT_pin = 35;// Digital input for mode button
 int TPI_pin = 10;// Test Point Input control
 
 // Measurement and Display Variables
@@ -195,8 +195,8 @@ void loop() {
   // Measure through all resistors
   for (int i = 0; i < 16; i++) {
     readMux(i);
-    vocValues[i] = sig * 3.3 / 4096;  // Convert ADC reading to voltage
-    icalValues[i] = vocValues[i] / resistorValues[i] * 1000;  // Calculate current in mA
+    vocValues[i] = sig;  // Convert ADC reading to voltage
+    icalValues[i] = vocValues[i] / resistorValues[i];  // Calculate current in mA
     powValues[i] = vocValues[i] * icalValues[i];  // Calculate power
     
     // Update maximum values
@@ -224,6 +224,45 @@ void loop() {
   // Draw the I-V curve on OLED
   drawIVline();
   
+  // type out to serial, if mode is selected through button press once
+  if (serialMode) {
+    Serial.println("    ");
+    Serial.println("=========== V meas===========");
+    
+    for(int i = 19; i >= 0; i --){
+    Serial.println(vocValues[i]);
+
+    }  
+
+    Serial.println("    ");
+    Serial.println("=========== I calculated ===========");
+    for(int i = 19; i >= 0; i --){
+    Serial.println(icalValues[i]);
+    }
+
+    Serial.println("=========== Power calculated ===========");
+    for(int i = 19; i >= 0; i --){
+    Serial.println(powValues[i]);
+    }
+
+    Serial.println("=========== MPP ===========");
+    Serial.println("    ");
+    Serial.print("MPP Index: ");
+    Serial.println(mppIndex);
+    Serial.print("Voltage at MPP: ");
+    Serial.print(vocValues[mppIndex]);
+    Serial.println(" mV");
+    Serial.print("Current at MPP: ");
+    Serial.print(icalValues[mppIndex]);
+    Serial.println(" mA");
+    Serial.print("Power at MPP: ");
+    Serial.print(powValues[mppIndex]);
+    Serial.println(" uW");
+    Serial.println("=========== DONE ===========");
+    delay(10);
+    serialMode = 0;
+  }
+
   delay(delayLoop);
 }
 
@@ -265,7 +304,7 @@ int readMux(int channel){
   //read the value at the SIG pin and average it a couple of times.
   for(int i = 1; i <= average; i ++){
   //val = analogRead(SIG_pin);
-  val = analogReadMilliVolts(SIG_pin);
+  val = analogReadMilliVolts(SIG_pin)*2; // there is a voltage divider
   
   // Read the button state
   buttonState = digitalRead(BUTT_pin) == LOW; // LOW means pressed

@@ -479,7 +479,7 @@
       "gencad": "",
       "idf": "",
       "netlist": "",
-      "plot": "./gerber",
+      "plot": "./gerber_MUX-ADG706",
       "pos_files": "",
       "specctra_dsn": "",
       "step": "",
