@@ -23,6 +23,11 @@ The logarithmic resistor array and optional MOSFET configuration allow measureme
 - Optional MOSFET for low-resistance measurements
 - Built-in voltage divider for measuring higher voltage sources (>3.3V)
 
+## Web Interface
+![Web interface showing real-time I-V curve and power measurements](./images/Screenshot_webinterface.jpg)
+
+The web interface provides real-time visualization of measurements, displaying both the I-V curve (blue) and power curve (pink). Key measurements like Maximum Power Point (MPP), Short Circuit Current (Isc), and Open Circuit Voltage (Voc) are shown in an easy-to-read card layout.
+
 ## Example I-V Curve
 ![Typical solar cell I-V curve showing short circuit current (Isc), open circuit voltage (Voc), and Maximum Power Point (MPP)](./images/typical_IV_curve.jpg)
 
