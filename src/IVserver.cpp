@@ -69,7 +69,7 @@ void handleRoot() {
 
         .container {
             width: 100%;
-            max-width: 1200px;
+            max-width: 600px;
         }
 
         h1 {
@@ -177,9 +177,14 @@ void handleRoot() {
                         type: 'scatter'
                     };
 
+                    // Add (0,0) point and connect to the last measurement point (Voc)
+                    const lastIndex = data.voltage.length - 1;
+                    const voltageWithZero = [...data.voltage.map(v => v/1000), 0];
+                    const powerWithZero = [...data.power.map(p => p/1000), 0];
+
                     const trace2 = {
-                        x: data.voltage.map(v => v/1000),  // Convert to V
-                        y: data.power.map(p => p/1000),    // Convert to mW
+                        x: voltageWithZero,
+                        y: powerWithZero,
                         name: 'Power',
                         yaxis: 'y2',
                         line: {color: '#ff2e88', width: 2},  // Pink
