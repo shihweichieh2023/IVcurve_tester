@@ -74,7 +74,7 @@ int scaleY;      // Y-axis (current) scaling factor from potentiometer
 int scaleX;      // X-axis (voltage) scaling factor from potentiometer
 int average = 3; // Number of readings to average for noise reduction
 int delayAveraging = 10;  // Delay between averaged readings (ms)
-int delayLoop = 300;      // Delay between measurement cycles (ms)
+int delayLoop = 200;      // Delay between measurement cycles (ms)
 
 // Interface Control Variables
 bool serialMode = 0;          // Serial output mode flag
@@ -93,50 +93,27 @@ float maxVoltage = 0;  // Maximum voltage tracking
 int mppIndex = 0;      // Index of maximum power point
 
 // Resistor array values in ohms (measured through MUX)
-int resistorValues5V[20]{
-11636,
-7420,
-4830,
-3194,
-1892,
-977,
-761,
-516,
-386,
-283,
-218,
-177,
-155,
-129,
-110,
-102,
-50,
-50,
-50,
-50
-};
-
 int resistorValues[20]{
-10317,
-6856,
-4723,
-3211,
-1878,
-972,
-764,
-516,
-383,
-278,
-212,
-165,
-142,
-114,
-95,
-83,
-83,
-83,
-83,
-83
+  1000000,
+  19910,
+  8200,
+  4310,
+  2230,
+  1052,
+  802,
+  530,
+  390,
+  282,
+  212,
+  165,
+  140,
+  112,
+  93,
+  81,
+  81,
+  81,
+  81,
+  81
 };
 
 void setup() {
@@ -195,6 +172,13 @@ void loop() {
   maxVoltage = 0;
   
   // Measure through all resistors
+  digitalWrite(s0, 0);
+  digitalWrite(s1, 0);
+  digitalWrite(s2, 0);
+  digitalWrite(s3, 0);
+  digitalWrite(TPI_pin, 0);
+  delay(50);
+
   for (int i = 0; i < 16; i++) {
     readMux(i);
     vocValues[i] = sig;  // Convert ADC reading to voltage
@@ -205,9 +189,9 @@ void loop() {
     if (powValues[i] > maxPower) {
       maxPower = powValues[i];
       mppIndex = i;
+      maxCurrent = icalValues[i];  // Current at MPP
+      maxVoltage = vocValues[i];   // Voltage at MPP
     }
-    if (icalValues[i] > maxCurrent) maxCurrent = icalValues[i];
-    if (vocValues[i] > maxVoltage) maxVoltage = vocValues[i];
     
     delay(delayAveraging);
   }
@@ -229,26 +213,22 @@ void loop() {
   // type out to serial, if mode is selected through button press once
   if (serialMode) {
     Serial.println("    ");
-    Serial.println("=========== V meas===========");
-    
-    for(int i = 19; i >= 0; i --){
-    Serial.println(vocValues[i]);
-
-    }  
-
-    Serial.println("    ");
     Serial.println("=========== I calculated ===========");
-    for(int i = 19; i >= 0; i --){
+    for(int i = 0; i <=15; i ++){
     Serial.println(icalValues[i]);
     }
 
     Serial.println("=========== Power calculated ===========");
-    for(int i = 19; i >= 0; i --){
+    for(int i = 0; i <=15; i ++){
     Serial.println(powValues[i]);
     }
+    Serial.println("    ");
+    Serial.println("=========== V meas===========");
+    for(int i = 0; i <=15; i ++){
+    Serial.println(vocValues[i]);
+    }  
 
     Serial.println("=========== MPP ===========");
-    Serial.println("    ");
     Serial.print("MPP Index: ");
     Serial.println(mppIndex);
     Serial.print("Voltage at MPP: ");
@@ -273,10 +253,7 @@ int readMux(int channel){
 
   //rearranged the Channel 0 to the end according to soldered circuit
   int muxChannel[20][5]={
-    {0,1,0,0,0}, //channel TPI
-    {0,1,0,0,0}, //channel TPI
-    {0,1,0,0,0}, //channel TPI
-    {0,1,0,0,0}, //channel TPI
+    {0,0,0,0,0}, //channel 0
     {0,1,0,0,0}, //channel 1
     {0,0,1,0,0}, //channel 2
     {0,1,1,0,0}, //channel 3
@@ -292,7 +269,10 @@ int readMux(int channel){
     {0,1,0,1,1}, //channel 13
     {0,0,1,1,1}, //channel 14
     {0,1,1,1,1}, //channel 15
-    {0,0,0,0,0}  //channel 0
+    {0,1,0,0,0}, //channel TPI
+    {0,1,0,0,0}, //channel TPI
+    {0,1,0,0,0}, //channel TPI
+    {0,1,0,0,0} //channel TPI
   };
 
   //loop through the 4 sig + TPI channel
@@ -353,44 +333,43 @@ void drawIVline()
   display.clearDisplay();  // Clear the display buffer
   drawBackground();       // Redraw the background
   
-  int scale_Y = (scaleY+100) / 2;
-  int scale_X = (scaleX+200) / 50;
+  // Find maximum values for auto-scaling
+  float maxV = 0.001;  // Small non-zero value to prevent division by zero
+  float maxI = 0.001;  // Small non-zero value to prevent division by zero
+  
+  for(int i = 0; i < 16; i++) {
+    if(vocValues[i] > maxV) maxV = vocValues[i];
+    if(icalValues[i] > maxI) maxI = icalValues[i];
+  }
+  
+  // Calculate scaling factors (pixels per volt/amp)
+  float scaleX_auto = 89.0 / maxV;   // Scale to exactly 89 pixels (1 to 90)
+  float scaleY_auto = 38.0 / maxI;   // 40 pixels for y-axis
   
   // Draw the I-V curve points and lines
   for(int i = 15; i > 0; i--) {
-    display.drawLine(
-      vocValues[i]/scale_X,
-      44-icalValues[i]/scale_Y,
-      vocValues[i-1]/scale_X,
-      44-icalValues[i-1]/scale_Y,
-      WHITE
-    );
-    display.drawRect(
-      vocValues[i-1]/scale_X-1,
-      44-icalValues[i-1]/scale_Y-1,
-      3,
-      3,
-      WHITE
-    );
+    int x1 = 1 + (int)(vocValues[i] * scaleX_auto);     // Start at x=1
+    int y1 = 42 - (int)(icalValues[i] * scaleY_auto);
+    int x2 = 1 + (int)(vocValues[i-1] * scaleX_auto);   // Start at x=1
+    int y2 = 42 - (int)(icalValues[i-1] * scaleY_auto);
+    
+    // Ensure coordinates are within display bounds
+    x1 = constrain(x1, 1, 90);    // Exactly 1-90 pixels for x
+    y1 = constrain(y1, 0, 44);    // 0-44 for y
+    x2 = constrain(x2, 1, 90);
+    y2 = constrain(y2, 0, 44);
+    
+    display.drawLine(x1, y1, x2, y2, WHITE);
+    display.drawRect(x2-1, y2-1, 3, 3, WHITE);
   }
   
-  // Draw the first point and line to Y-axis
-  display.drawLine(
-    vocValues[0]/scale_X,
-    44-icalValues[0]/scale_Y,
-    0,
-    44-icalValues[0]/scale_Y,
-    WHITE
-  );
-  display.drawRect(
-    0,
-    44-icalValues[0]/scale_Y-1,
-    3,
-    3,
-    WHITE
-  );
+  // Draw maximum power point marker
+  int mpx = 1 + (int)(vocValues[mppIndex] * scaleX_auto);  // Start at x=1
+  int mpy = 42 - (int)(icalValues[mppIndex] * scaleY_auto);
+  mpx = constrain(mpx, 3, 88);    // Keep MPP marker within graph area
+  mpy = constrain(mpy, 2, 42);
+  display.fillRect(mpx-2, mpy-2, 5, 5, WHITE);
   
-  // Update the display
   display.display();
 }
 
@@ -417,34 +396,33 @@ void drawBackground()
   // Draw right-side information panel
   display.setTextSize(1);
   display.setTextColor(WHITE);
-  
-  // Display maximum current (top)
+  display.setCursor(104, 0);
+  display.println("I-V");
+  // Display short circuit current (Isc)
   display.setCursor(104, 12);
   display.println("Isc:");
   display.setCursor(104, 20);
-  display.print(maxCurrent/1000.0, 1);
+  display.print(icalValues[15], 1);  // Index 15 for short circuit current
   
-  // Display maximum power (middle)
+  // Display open circuit voltage (Voc)
   display.setCursor(104, 30);
-  display.println("Pow:");
+  display.println("Voc:");
   display.setCursor(104, 38);
-  float maxTheoretical = maxCurrent * maxVoltage / 1000;  // Calculate theoretical max power
-  display.print(maxTheoretical, 1);
+  display.print(vocValues[0]/1000.0, 2);  // Index 0 for open circuit voltage, convert to V
 
-  // Display MPP values at the bottom
+  // Display voltage and current at MPP
   display.setTextSize(1);
   display.setCursor(0, 47);
   display.print("MPP: ");
-  display.print(maxPower, 1);  // Actual measured MPP
+  display.print(maxPower/1000, 1);  // Actual measured MPP
   display.println("mW");
   
-  // Display voltage and current at MPP
   display.setCursor(0, 56);
   display.print("V:");
-  display.print(vocValues[mppIndex], 1);  // Voltage at MPP
+  display.print(vocValues[mppIndex], 0);  // Voltage at MPP
   display.print("mV  I:");
-  display.print(icalValues[mppIndex], 0);  // Current at MPP
-  display.print("uA");
+  display.print(icalValues[mppIndex], 2);  // Current at MPP
+  display.print("mA");
   
   display.display();
 }
