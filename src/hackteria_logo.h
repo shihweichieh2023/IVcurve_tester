@@ -1,6 +1,9 @@
 #ifndef HACKTERIA_LOGO_H
 #define HACKTERIA_LOGO_H
 
+#define HACKTERIA_LOGO_WIDTH 128
+#define HACKTERIA_LOGO_HEIGHT 64
+
 const unsigned char hackteria_logo [] PROGMEM = {
   // 'hackteria_logo, 128x64px
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 

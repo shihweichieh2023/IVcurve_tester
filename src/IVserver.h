@@ -10,9 +10,9 @@ struct IVData {
     float maxPower;
     float maxCurrent;
     float maxVoltage;
-    float* vocValues;    // Array of voltage measurements
-    float* icalValues;   // Array of current measurements
-    float* powValues;    // Array of power measurements
+    float vocValues[16];    // Fixed size array of voltage measurements
+    float icalValues[16];   // Fixed size array of current measurements
+    float powValues[16];    // Fixed size array of power measurements
     int numPoints;       // Number of measurement points
 };
 
