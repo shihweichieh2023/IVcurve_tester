@@ -74,6 +74,7 @@ void handleIVserver();
 void setupIVserver();
 int readMux(int channel);
 void printMeasurements();
+void drawDashedLine(int x0, int y0, int x1, int y1, uint16_t color, int dashLength, int gapLength);
 
 // Pin assignments from board configuration
 int s0 = PIN_MUX_S0;      // MUX control pin S0
@@ -87,13 +88,14 @@ int BUTT_pin = PIN_BUTTON;// Digital input for mode button
 int TPI_pin = PIN_TPI;    // Test Point Input control
 
 // Measurement and Display Variables
-const int resistorCorrection = 22;  // Value to subtract from resistor values
+const int resistorCorrection = 26;  // Value to subtract from resistor values
 int overlay = 0; // Display overlay state
 int scaleY;      // Y-axis (current) scaling factor from potentiometer
 int scaleX;      // X-axis (voltage) scaling factor from potentiometer
-int average = 3; // Number of readings to average for noise reduction
-int delayAveraging = 10;  // Delay between averaged readings (ms)
-int delayLoop = 200;      // Delay between measurement cycles (ms)
+const int average = 5;           // Number of readings to average
+const int delayLoop = 100;        // Main loop delay
+const int delayAveraging = 12;    // Delay between ADC readings for averaging
+const int delayMuxSwitch = 2;    // Delay after MUX switching for voltage stabilization
 
 // Interface Control Variables
 bool serialMode = 0;          // Serial output mode flag
@@ -106,10 +108,18 @@ const unsigned long recentThreshold = 2000; // Button press timeout (ms)
 float vocValues[20];   // Array to store voltage measurements
 float icalValues[20];  // Array to store calculated currents
 float powValues[20];   // Array to store power values
+float prevVocValues[20];   // Array to store previous voltage measurements
+float prevIcalValues[20];  // Array to store previous current measurements
+float prevPowValues[20];   // Array to store previous power values
 float maxPower = 0;    // Maximum power point tracking
 float maxCurrent = 0;  // Maximum current tracking
 float maxVoltage = 0;  // Maximum voltage tracking
+float prevMaxPower = 0;    // Previous maximum power
+float prevMaxCurrent = 0;  // Previous maximum current
+float prevMaxVoltage = 0;  // Previous maximum voltage
+bool hasPreviousMeasurement = false;  // Flag to track if we have a previous measurement
 int mppIndex = 0;      // Index of maximum power point
+int prevMppIndex = 0;  // Previous maximum power point index
 
 // Resistor array values in ohms (measured through MUX)
 int resistorValues[20]{
@@ -135,6 +145,9 @@ int resistorValues[20]{
   81
 };
 
+// Add global variable for button press detection
+volatile bool buttonPressed = false;
+
 void setup() {
   Serial.begin(115200);
   delay(500);  // Give more time for Serial to initialize
@@ -149,6 +162,14 @@ void setup() {
   pinMode(s2, OUTPUT);
   pinMode(s3, OUTPUT);  // Added s3 pin initialization
   pinMode(PIN_BUTTON, INPUT_PULLUP);
+  
+  // Initialize arrays to zero
+  memset(vocValues, 0, sizeof(vocValues));
+  memset(icalValues, 0, sizeof(icalValues));
+  memset(powValues, 0, sizeof(powValues));
+  memset(prevVocValues, 0, sizeof(prevVocValues));
+  memset(prevIcalValues, 0, sizeof(prevIcalValues));
+  memset(prevPowValues, 0, sizeof(prevPowValues));
   
   // Initialize OLED
   initOLED();
@@ -198,12 +219,7 @@ void loop() {
   scaleY = analogReadMilliVolts(POTY_pin);
   digitalWrite(TPI_pin, 0);
   
-  // Reset maximum values at the start of each measurement cycle
-  maxPower = 0;
-  maxCurrent = 0;
-  maxVoltage = 0;
-  
-  // Measure through all resistors
+  // Take continuous measurements
   digitalWrite(s0, 0);
   digitalWrite(s1, 0);
   digitalWrite(s2, 0);
@@ -211,9 +227,16 @@ void loop() {
   digitalWrite(TPI_pin, 0);
   delay(50);
 
-  for (int i = 0; i < 16; i++) {  // Changed back to 16 since arrays are sized for 16 values
+  // Reset max values for new measurement
+  maxPower = 0;
+  maxCurrent = 0;
+  maxVoltage = 0;
+  mppIndex = 0;
+
+  // Complete full measurement cycle
+  for (int i = 0; i < 16; i++) {
     vocValues[i] = readMux(i);  // Get voltage directly from return value
-    icalValues[i] = vocValues[i] / (resistorValues[i] - resistorCorrection);  // Calculate current in mA, subtracting correction
+    icalValues[i] = vocValues[i] / (resistorValues[i] - resistorCorrection);  // Calculate current in mA
     powValues[i] = vocValues[i] * icalValues[i];  // Calculate power
     
     // Update maximum values
@@ -238,7 +261,7 @@ void loop() {
   data.maxPower = maxPower;
   data.maxCurrent = maxCurrent;
   data.maxVoltage = maxVoltage;
-  data.numPoints = 16;  // number of measurement points
+  data.numPoints = 16;
   
   // Copy array values
   for(int i = 0; i < 16; i++) {
@@ -248,23 +271,30 @@ void loop() {
   }
   updateIVserverData(data);
   
-  // Update OLED display
+  // Update OLED display continuously
   drawIVline();
 
-  // Read the button state
-  buttonState = digitalRead(PIN_BUTTON) == LOW; // LOW means pressed
-
-  // Check if the button state changed and is pressed
-  if (buttonState && !lastButtonState) {
-    lastPressTime = millis(); // Update the last press time
+  // Handle button press
+  if (buttonPressed) {
     Serial.println("Button pressed!");
-    delay(200);
+    
+    // First draw the e-ink display with current measurement in red and previous in black
+    drawOnEink();
     printMeasurements();
-    drawOnEink();  // Update e-ink display when button is pressed
+    
+    // Only after displaying, store current as previous for next time
+    memcpy(prevVocValues, vocValues, sizeof(vocValues));
+    memcpy(prevIcalValues, icalValues, sizeof(icalValues));
+    memcpy(prevPowValues, powValues, sizeof(powValues));
+    prevMaxPower = maxPower;
+    prevMaxCurrent = maxCurrent;
+    prevMaxVoltage = maxVoltage;
+    prevMppIndex = mppIndex;
+    hasPreviousMeasurement = true;
+
+    buttonPressed = false;  // Reset flag
+    delay(200);  // Debounce delay
   }
-  
-  // Update last button state
-  lastButtonState = buttonState;
   
   delay(delayLoop);
 }
@@ -272,17 +302,17 @@ void loop() {
 void printMeasurements() {
   Serial.println("    ");
   Serial.println("=========== I calculated ===========");
-  for(int i = 0; i <=15; i ++){
+  for(int i = 0; i < 16; i ++){
     Serial.println(icalValues[i]);
   }
 
   Serial.println("=========== Power calculated ===========");
-  for(int i = 0; i <=15; i ++){
+  for(int i = 0; i < 16; i ++){
     Serial.println(powValues[i]);
   }
   Serial.println("    ");
   Serial.println("=========== V meas===========");
-  for(int i = 0; i <=15; i ++){
+  for(int i = 0; i < 16; i ++){
     Serial.println(vocValues[i]);
   }  
 
@@ -302,51 +332,28 @@ void printMeasurements() {
   delay(10);
 }
 
-int readMux(int channel){
-  int controlPin[] = {TPI_pin, s0, s1, s2, s3};
-
-  //rearranged the Channel 0 to the end according to soldered circuit
-  int muxChannel[20][5]={
-    {0,0,0,0,0}, //channel 0
-    {0,1,0,0,0}, //channel 1
-    {0,0,1,0,0}, //channel 2
-    {0,1,1,0,0}, //channel 3
-    {0,0,0,1,0}, //channel 4
-    {0,1,0,1,0}, //channel 5
-    {0,0,1,1,0}, //channel 6
-    {0,1,1,1,0}, //channel 7
-    {0,0,0,0,1}, //channel 8
-    {0,1,0,0,1}, //channel 9
-    {0,0,1,0,1}, //channel 10
-    {0,1,1,0,1}, //channel 11
-    {0,0,0,1,1}, //channel 12
-    {0,1,0,1,1}, //channel 13
-    {0,0,1,1,1}, //channel 14
-    {0,1,1,1,1}, //channel 15
-    {1,1,1,1,1}, //channel TPI
-    {1,1,1,1,1}, //channel TPI
-    {1,1,1,1,1}, //channel TPI
-    {1,1,1,1,1} //channel TPI
-  };
-
-  //loop through the 4 sig + TPI channel
-  for(int i = 0; i < 5; i ++){
-    digitalWrite(controlPin[i], muxChannel[channel][i]);   
-  }
-
-  int prev = 0;
-  int val = 0;
- 
-  //read the value at the SIG pin and average it a couple of times.
-  for(int i = 1; i <= average; i ++){
-    val = analogReadMilliVolts(SIG_pin)*2; // there is a voltage divider
-    val = prev + val;
+int readMux(int channel) {
+  int sig = 0;
+  
+  // Set the channel on MUX
+  digitalWrite(s0, bitRead(channel, 0));
+  digitalWrite(s1, bitRead(channel, 1));
+  digitalWrite(s2, bitRead(channel, 2));
+  digitalWrite(s3, bitRead(channel, 3));
+  delay(delayMuxSwitch);  // Delay for voltage stabilization after switching
+  
+  // Take multiple readings and average
+  for(int i = 0; i < average; i++) {
+    // Check for button press during measurement
+    if (digitalRead(PIN_BUTTON) == LOW) {  // Button pressed
+      buttonPressed = true;
+    }
+    
+    sig += analogReadMilliVolts(SIG_pin) * 2;  // Multiply by 2 to account for voltage divider
     delay(delayAveraging);
-    prev = val;
   }
-
-  //return the averaged value directly
-  return val / average;
+  
+  return sig / average;
 }
 
 void initOLED() {
@@ -418,86 +425,113 @@ void drawOnEink() {
   eink.print("Current (mA)");
   eink.setRotation(oldRotation);  // Restore original rotation
   
-  // Calculate auto-scaling factors for 80% of graph area
-  float scaleX_auto = 150.0 / (maxVoltage * 1.1);  // Add 10% margin
-  float scaleY_auto = 95.0 / (maxCurrent * 1.1);   // Add 10% margin
+  // Calculate scaling factors ONCE using max values from both measurements
+  float scaleX_auto = 160.0 / (max(maxVoltage, hasPreviousMeasurement ? prevMaxVoltage : 0) * 1.1);  // Add 10% margin
+  float scaleY_auto = 100.0 / (max(maxCurrent, hasPreviousMeasurement ? prevMaxCurrent : 0) * 1.1);   // Add 10% margin
+  float scaleY_power = 47.5 / (max(maxPower, hasPreviousMeasurement ? prevMaxPower : 0) * 1.1);    // 50% of the height (95/2)
   
-  // Plot the I-V curve points
-  for(int i = 1; i < 16; i++) {
-    // Calculate coordinates with proper scaling
-    int x1 = 20 + (int)(vocValues[i-1] * scaleX_auto);
-    int y1 = 110 - (int)(icalValues[i-1] * scaleY_auto);
-    int x2 = 20 + (int)(vocValues[i] * scaleX_auto);
-    int y2 = 110 - (int)(icalValues[i] * scaleY_auto);
+  // Only plot previous measurement if we have one
+  if (hasPreviousMeasurement) {
+    // First draw the previous measurement in red (without dots)
+    for(int i = 0; i < 16; i++) {
+      int x = 20 + (int)(prevVocValues[i] * scaleX_auto);
+      int y = 110 - (int)(prevIcalValues[i] * scaleY_auto);
+      x = constrain(x, 20, 180);
+      y = constrain(y, 10, 110);
+      if (i == 0) {
+        eink.drawPixel(x, y, EPD_RED);
+      } else {
+        int x_prev = 20 + (int)(prevVocValues[i-1] * scaleX_auto);
+        int y_prev = 110 - (int)(prevIcalValues[i-1] * scaleY_auto);
+        x_prev = constrain(x_prev, 20, 180);
+        y_prev = constrain(y_prev, 10, 110);
+        eink.drawLine(x_prev, y_prev, x, y, EPD_RED);
+      }
+    }
+  }
+
+  // Then plot the current measurement in red with dots
+  for(int i = 0; i < 16; i++) {
+    int x = 20 + (int)(vocValues[i] * scaleX_auto);
+    int y = 110 - (int)(icalValues[i] * scaleY_auto);
+    x = constrain(x, 20, 180);
+    y = constrain(y, 10, 110);
+    if (i == 0) {
+      eink.drawPixel(x, y, EPD_RED);
+    } else {
+      int x_prev = 20 + (int)(vocValues[i-1] * scaleX_auto);
+      int y_prev = 110 - (int)(icalValues[i-1] * scaleY_auto);
+      x_prev = constrain(x_prev, 20, 180);
+      y_prev = constrain(y_prev, 10, 110);
+      eink.drawLine(x_prev, y_prev, x, y, EPD_RED);
+    }
+    // Add dots at each measurement point
+    eink.fillCircle(x, y, 2, EPD_RED);
+  }
+  
+  // Draw previous power curve in black
+  if (hasPreviousMeasurement) {
+    // Draw from high V to low V (index 0 to 15)
+    for(int i = 15; i >= 0; i--) {
+      float prev_power1 = prevVocValues[i] * prevIcalValues[i];
+      float prev_power2 = prevVocValues[i-1] * prevIcalValues[i-1];
+      
+      int x1 = 20 + (int)(prevVocValues[i] * scaleX_auto);
+      int y1 = 110 - (int)(prev_power1 * scaleY_power);
+      int x2 = 20 + (int)(prevVocValues[i-1] * scaleX_auto);
+      int y2 = 110 - (int)(prev_power2 * scaleY_power);
+      
+      x1 = constrain(x1, 20, 180);
+      y1 = constrain(y1, 10, 110);
+      x2 = constrain(x2, 20, 180);
+      y2 = constrain(y2, 10, 110);
+      
+      if (i > 0) {  // Only draw line if we have a next point
+        drawDashedLine(x1, y1, x2, y2, EPD_BLACK, 2, 2);  // Shorter dashes for power curve
+      }
+    }
     
-    // Constrain points to graph area
+    // Connect lowest V point (index 15) to origin for previous curve
+    float prev_last_power = prevVocValues[15] * prevIcalValues[15];
+    int x1 = 20 + (int)(prevVocValues[15] * scaleX_auto);
+    int y1 = 110 - (int)(prev_last_power * scaleY_power);
     x1 = constrain(x1, 20, 180);
     y1 = constrain(y1, 10, 110);
-    x2 = constrain(x2, 20, 180);
-    y2 = constrain(y2, 10, 110);
-    
-    // Draw line segment
-    eink.drawLine(x1, y1, x2, y2, EPD_RED);
-    
-    // Draw dots at each measurement point in red
-    eink.fillCircle(x1, y1, 2, EPD_RED);
-    if (i == 15) {  // Draw the last point
-      eink.fillCircle(x2, y2, 2, EPD_RED);
-    }
+    drawDashedLine(x1, y1, 20, 110, EPD_BLACK, 2, 2);  // Draw to origin (20,110)
   }
-  
-  // Plot the power curve (using same x-axis scaling but 50% y-axis height)
-  float maxPower = 0;
-  int mppIndex = 0;
-  for(int i = 0; i < 16; i++) {
-    // Calculate power the same way as in the main loop
-    float power = vocValues[i] * icalValues[i];  // Power in µW
-    if(power > maxPower) {
-      maxPower = power;
-      mppIndex = i;
-    }
-  }
-  
-  float scaleY_power = 47.5 / (maxPower * 1.1);  // 50% of the height (95/2)
-  
-  // Draw power curve in black
-  // First draw line from origin to lowest voltage point
-  int x0 = 20;  // Origin x
-  int y0 = 110; // Origin y
-  int x1 = 20 + (int)(vocValues[15] * scaleX_auto);  // Use index 15 (lowest voltage)
-  float power1 = vocValues[15] * icalValues[15];  // Calculate power same as main loop
-  int y1 = 110 - (int)(power1 * scaleY_power);
-  
-  // Constrain first point
-  x1 = constrain(x1, 20, 180);
-  y1 = constrain(y1, 10, 110);
-  
-  // Draw line from origin to first point
-  eink.drawLine(x0, y0, x1, y1, EPD_BLACK);
-  
-  // Draw rest of power curve
-  for(int i = 1; i < 16; i++) {
-    float power1 = vocValues[i-1] * icalValues[i-1];  // Calculate power same as main loop
-    float power2 = vocValues[i] * icalValues[i];  // Calculate power same as main loop
+
+  // Draw power curve (current measurement in black)
+  // Draw from high V to low V (index 0 to 15)
+  for(int i = 15; i >= 0; i--) {
+    float power1 = vocValues[i] * icalValues[i];
+    float power2 = vocValues[i-1] * icalValues[i-1];
     
-    int x1 = 20 + (int)(vocValues[i-1] * scaleX_auto);
+    int x1 = 20 + (int)(vocValues[i] * scaleX_auto);
     int y1 = 110 - (int)(power1 * scaleY_power);
-    int x2 = 20 + (int)(vocValues[i] * scaleX_auto);
+    int x2 = 20 + (int)(vocValues[i-1] * scaleX_auto);
     int y2 = 110 - (int)(power2 * scaleY_power);
     
-    // Constrain points to graph area
     x1 = constrain(x1, 20, 180);
     y1 = constrain(y1, 10, 110);
     x2 = constrain(x2, 20, 180);
     y2 = constrain(y2, 10, 110);
     
-    // Draw line segment
-    eink.drawLine(x1, y1, x2, y2, EPD_BLACK);
+    if (i > 0) {  // Only draw line if we have a next point
+      eink.drawLine(x1, y1, x2, y2, EPD_BLACK);  // Solid line for current power curve
+    }
   }
+
+  // Connect lowest V point (index 15) to origin for current curve
+  float last_power = vocValues[15] * icalValues[15];
+  int x1 = 20 + (int)(vocValues[15] * scaleX_auto);
+  int y1 = 110 - (int)(last_power * scaleY_power);
+  x1 = constrain(x1, 20, 180);
+  y1 = constrain(y1, 10, 110);
+  eink.drawLine(x1, y1, 20, 110, EPD_BLACK);  // Solid line to origin
   
-  // Add MPP dot on power curve
+  // Add MPP dot for current power curve
   if (maxPower > 0 && mppIndex >= 0 && mppIndex < 16) {
-    float mpp_power = vocValues[mppIndex] * icalValues[mppIndex];  // Calculate power same as main loop
+    float mpp_power = vocValues[mppIndex] * icalValues[mppIndex];
     int mpx = 20 + (int)(vocValues[mppIndex] * scaleX_auto);
     int mpy = 110 - (int)(mpp_power * scaleY_power);
     mpx = constrain(mpx, 20, 180);
@@ -505,57 +539,28 @@ void drawOnEink() {
     eink.fillCircle(mpx, mpy, 2, EPD_BLACK);
   }
   
-  // Plot the I-V curve points and lines
-  for(int i = 1; i < 16; i++) {
-    // Calculate coordinates with proper scaling
-    int x1 = 20 + (int)(vocValues[i-1] * scaleX_auto);
-    int y1 = 110 - (int)(icalValues[i-1] * scaleY_auto);
-    int x2 = 20 + (int)(vocValues[i] * scaleX_auto);
-    int y2 = 110 - (int)(icalValues[i] * scaleY_auto);
-    
-    // Constrain points to graph area
-    x1 = constrain(x1, 20, 180);
-    y1 = constrain(y1, 10, 110);
-    x2 = constrain(x2, 20, 180);
-    y2 = constrain(y2, 10, 110);
-    
-    // Draw line segment
-    eink.drawLine(x1, y1, x2, y2, EPD_RED);
-    
-    // Draw dots at each measurement point in red
-    eink.fillCircle(x1, y1, 2, EPD_RED);
-    if (i == 15) {  // Draw the last point
-      eink.fillCircle(x2, y2, 2, EPD_RED);
-    }
-  }
-  
-  // Display MPP point (slightly larger than measurement points)
-  if (maxPower > 0 && mppIndex >= 0 && mppIndex < 16) {
-    int mpx = 20 + (int)(vocValues[mppIndex] * scaleX_auto);
-    int mpy = 110 - (int)(icalValues[mppIndex] * scaleY_auto);
-    mpx = constrain(mpx, 20, 180);
-    mpy = constrain(mpy, 10, 110);
-    eink.fillCircle(mpx, mpy, 3, EPD_RED);
-  }
-  
   // Add measurements text
+  eink.setTextColor(EPD_RED);
+  eink.setCursor(184, 40);
+  eink.print("MPP:");
+  //eink.setCursor(184, 52);
+  eink.setTextSize(3);
+  eink.print(maxPower/1000, 2);  // Try multiplying by 1000
+  eink.setTextSize(1);
+  eink.setCursor(280, 40);
+  eink.print("mW");
+  
   eink.setTextSize(1);
   eink.setTextColor(EPD_BLACK);
-  
-  eink.setCursor(190, 40);
-  eink.print("Isc: ");
+  eink.setCursor(184, 70);
+  eink.print("Isc:");
   eink.print(icalValues[15], 2);
   eink.print("mA");
   
-  eink.setCursor(190, 52);
-  eink.print("Voc: ");
+  eink.setCursor(184, 82);
+  eink.print("Voc:");
   eink.print(vocValues[0]/1000.0, 2);
   eink.print("V");
-  
-  eink.setCursor(190, 64);
-  eink.print("MPP: ");
-  eink.print(maxPower/1000, 2);  // Try multiplying by 1000
-  eink.print("mW");
   
   // Add title in red
   eink.setTextSize(2);
@@ -570,7 +575,7 @@ void drawOnEink() {
   eink.print("button to update");
   
   // Draw hackteria logo in bottom right corner
-  eink.drawBitmap(296 - HACKTERIA_LOGO_WIDTH + 40 - 2,    // X position (2 pixels from right edge)
+  eink.drawBitmap(296 - HACKTERIA_LOGO_WIDTH + 42 - 2,    // X position (2 pixels from right edge)
                   128 - HACKTERIA_LOGO_HEIGHT - 2,     // Y position (2 pixels from bottom edge)
                   hackteria_logo, HACKTERIA_LOGO_WIDTH, HACKTERIA_LOGO_HEIGHT, EPD_RED);
   
@@ -650,6 +655,36 @@ void drawOnEinkBackground() {
   
   eink.powerDown(); // Power down the display
   delay(100);       // Wait for power down to complete
+}
+
+void drawDashedLine(int x0, int y0, int x1, int y1, uint16_t color, int dashLength, int gapLength) {
+  int dx = abs(x1 - x0);
+  int dy = abs(y1 - y0);
+  int sx = x0 < x1 ? 1 : -1;
+  int sy = y0 < y1 ? 1 : -1;
+  
+  // Total length of the line
+  float lineLength = sqrt(dx * dx + dy * dy);
+  
+  // Number of segments (dash + gap)
+  int segments = lineLength / (dashLength + gapLength);
+  if (segments == 0) segments = 1;  // At least one segment
+  
+  // Length of each segment normalized to line coordinates
+  float segmentLength = lineLength / segments;
+  
+  // Draw each dash
+  for (int i = 0; i < segments; i++) {
+    float startPercent = i * segmentLength / lineLength;
+    float endPercent = min((i * segmentLength + dashLength) / lineLength, 1.0f);
+    
+    int xStart = x0 + (x1 - x0) * startPercent;
+    int yStart = y0 + (y1 - y0) * startPercent;
+    int xEnd = x0 + (x1 - x0) * endPercent;
+    int yEnd = y0 + (y1 - y0) * endPercent;
+    
+    eink.drawLine(xStart, yStart, xEnd, yEnd, color);
+  }
 }
 
 void drawIVline()
@@ -736,15 +771,15 @@ void drawBackground()
 
   // Display voltage and current at MPP
   oled.setTextSize(1);
-  oled.setCursor(0, 47);
+  oled.setCursor(0, 56);
   oled.print("MPP: ");
-  oled.print(maxPower/1000, 1);  // Actual measured MPP
+  oled.print(maxPower/1000, 2);  // Actual measured MPP
   oled.println("mW");
   
-  oled.setCursor(0, 56);
+  oled.setCursor(0, 47);
   oled.print("V:");
-  oled.print(vocValues[mppIndex], 0);  // Voltage at MPP
-  oled.print("mV  I:");
+  oled.print(vocValues[mppIndex], 2);  // Voltage at MPP
+  oled.print("V  I:");
   oled.print(icalValues[mppIndex], 2);  // Current at MPP
   oled.print("mA");
   
