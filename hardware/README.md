@@ -2,7 +2,7 @@
 
 This directory contains the hardware design files for the I-V Curve Analyzer project, including detailed assembly instructions and PCB design files.
 
-![E-ink display showing I-V curve measurements](./images/prototype/Prototype_e-ink_display.jpg)
+![E-ink display showing I-V curve measurements](../images/prototype/Prototype_e-ink_display.jpg)
 *The e-ink display shows the current measurement in dark contrast while the previous measurement is shown in lighter contrast for easy comparison.*
 
 ## Directory Structure
