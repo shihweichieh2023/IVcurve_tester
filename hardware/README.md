@@ -2,10 +2,13 @@
 
 This directory contains the hardware design files for the I-V Curve Analyzer project, including detailed assembly instructions and PCB design files.
 
+![E-ink display showing I-V curve measurements](./images/prototype/Prototype_e-ink_display.jpg)
+*The e-ink display shows the current measurement in dark contrast while the previous measurement is shown in lighter contrast for easy comparison.*
+
 ## Directory Structure
 
 - [`HARDWARE.md`](HARDWARE.md) - Detailed assembly instructions and wiring guide
-- [`I-V-CurvePCB/`](I-V-CurvePCB/) - KiCad project files for the PCB design
+- [`MUX-ADG706/`](MUX-ADG706/) - KiCad project files for the PCB design of the MUX
 
 ## PCB Design Overview
 
@@ -19,19 +22,18 @@ The main improvement is the replacement of the CD74HC4067 with the ADG706BRUZ-RE
 - 28-pin SOP package for compact board layout
 
 ### Project Files
-The KiCad project (`I-V-CurvePCB/`) contains:
+The KiCad project (`MUX-ADG706/`) contains:
 
-- [`I-V-CurvePCB.kicad_sch`](I-V-CurvePCB/I-V-CurvePCB.kicad_sch) - Complete circuit schematic
-- [`I-V-CurvePCB.kicad_pcb`](I-V-CurvePCB/I-V-CurvePCB.kicad_pcb) - PCB layout design
-- [`I-V-CurvePCB-brd.svg`](I-V-CurvePCB/I-V-CurvePCB-brd.svg) - Board layout visualization
-- [`MASK_ADG706_muxer.svg`](I-V-CurvePCB/MASK_ADG706_muxer.svg) - Special mask layer for the multiplexer section
+- [`MUX-ADG706.kicad_sch`](MUX-ADG706/MUX-ADG706.kicad_sch) - Complete circuit schematic
+- [`MUX-ADG706.kicad_pcb`](MUX-ADG706/MUX-ADG706.kicad_pcb) - PCB layout design
+- [`gerber_MUX-ADG706.zip`](MUX-ADG706/gerber_MUX-ADG706.zip) - Gerber files for PCB manufacturing
 
 ### Component Library
-The [`ad706/`](I-V-CurvePCB/ad706/) directory contains all necessary files for the ADG706 multiplexer:
+The [`ad706/`](MUX-ADG706/ad706/) directory contains all necessary files for the ADG706 multiplexer:
 
-- [`ADG706BRUZ-REEL7.kicad_sym`](I-V-CurvePCB/ad706/ADG706BRUZ-REEL7.kicad_sym) - KiCad symbol file
-- [`SOP65P640X120-28N.kicad_mod`](I-V-CurvePCB/ad706/SOP65P640X120-28N.kicad_mod) - Footprint for the 28-pin SOP package
-- [`ADG706BRUZ-REEL7.step`](I-V-CurvePCB/ad706/ADG706BRUZ-REEL7.step) - 3D model for visualization
+- [`ADG706BRUZ-REEL7.kicad_sym`](MUX-ADG706/ad706/ADG706BRUZ-REEL7.kicad_sym) - KiCad symbol file
+- [`SOP65P640X120-28N.kicad_mod`](MUX-ADG706/ad706/SOP65P640X120-28N.kicad_mod) - Footprint for the 28-pin SOP package
+- [`ADG706BRUZ-REEL7.step`](MUX-ADG706/ad706/ADG706BRUZ-REEL7.step) - 3D model for visualization
 
 ## Design Goals
 

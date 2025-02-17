@@ -117,10 +117,10 @@ MIT License - See [LICENSE](LICENSE) file
 See [hardware/HARDWARE.md](hardware/HARDWARE.md) for detailed wiring and setup instructions.
 
 ## PCB Design and Prototypes
-The project includes a custom PCB design for more reliable and compact implementation. Design files and documentation can be found in:
+The project includes a custom PCB design for a MUX ADG706 for more reliable measurements and compact implementation. Design files and documentation can be found in:
  
 - Hardware documentation: [`hardware/HARDWARE.md`](hardware/HARDWARE.md)
-- PCB design files: [`hardware/I-V-CurvePCB/`](hardware/I-V-CurvePCB/)
+- PCB design files: [`hardware/MUX-ADG706/`](hardware/MUX-ADG706/)
 - PCB renders: [`images/pcb/`](images/pcb/)
 - Prototype photos: [`images/prototype/`](images/prototype/)
 
@@ -129,6 +129,20 @@ The project includes a custom PCB design for more reliable and compact implement
 
 ![Prototype during DSSC measurement](images/prototype/I-V-curve_DSSC_measurement.jpg)
 *First prototype of the I-V Curve Analyzer testing a series of Dye-Sensitized Solar Cells (DSSC). The compact design allows for easy in-line measurements during workshops and experiments.*
+
+### Component Library
+The [`ad706/`](MUX-ADG706/ad706/) directory contains all necessary files for the ADG706 multiplexer:
+
+- [`ADG706BRUZ-REEL7.kicad_sym`](MUX-ADG706/ad706/ADG706BRUZ-REEL7.kicad_sym) - KiCad symbol file
+- [`SOP65P640X120-28N.kicad_mod`](MUX-ADG706/ad706/SOP65P640X120-28N.kicad_mod) - Footprint for the 28-pin SOP package
+- [`ADG706BRUZ-REEL7.step`](MUX-ADG706/ad706/ADG706BRUZ-REEL7.step) - 3D model for visualization
+
+### Project Files
+The KiCad project (`MUX-ADG706/`) contains:
+
+- [`MUX-ADG706_v2.kicad_sch`](MUX-ADG706/MUX-ADG706_v2.kicad_sch) - Complete circuit schematic
+- [`MUX-ADG706_v2.kicad_pcb`](MUX-ADG706/MUX-ADG706_v2.kicad_pcb) - PCB layout design
+- [`gerber_MUX-ADG706_v2.zip`](MUX-ADG706/gerber_MUX-ADG706_v2.zip) - Gerber files for PCB manufacturing
 
 ## Credits
 Code and hardware design by Marc Dusseiller (@dusjagr), with assistance from the Windsurf AI coding assistant. This collaboration demonstrates how AI tools can enhance open hardware development while maintaining human creativity and expertise at the core of the project.
