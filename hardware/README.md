@@ -39,9 +39,19 @@ The [`ad706/`](I-V-CurvePCB/ad706/) directory contains all necessary files for t
 2. Maintain compact form factor
 3. Ensure reliable connections for workshop use
 4. Enable precise I-V curve measurements for solar cells and other low-power sources
+5. Provide persistent measurement display through e-ink technology
+
+## Display System
+
+The device features a dual-display system:
+- **OLED Display**: For real-time measurement data and device status
+- **E-ink Display (2.9" Adafruit IL0373)**: For persistent measurement visualization
+  - Shows current and previous I-V curves for comparison
+  - Maintains display even when powered off
+  - High contrast for outdoor readability
 
 ## Future Considerations
 
 - Consider adding test points for easier debugging
 - Evaluate thermal considerations for continuous operation
-- Plan for potential e-paper display integration
+- Explore data logging capabilities for long-term studies

@@ -14,33 +14,33 @@ To select your board, edit the `include/board_config.h` file and uncomment the a
 ## Block Diagram
 ```ascii
 +-------------+     +----------+     +-----------+
-|  Solar      |     | Resistor |     |   MUX    |
-|  Cell       |---->|  Array   |---->| CD74HC   |
-| (DUT)       |     | (R5-R20) |     | 4067     |
+|  Solar      |     | Resistor |     |    MUX    |
+|  Cell       |---->|  Array   |---->|  CD74HC   |
+| (DUT)       |     | (R1-R16) |     |   4067    |
 +-------------+     +----------+     +-----------+
        |                                  |
        |                                  |
        |                                  |
        |           +---------+            |
-       +---------->| MOSFET  |            |
-                   | Circuit |            |
-                   +---------+            |
-                        |                 |
-                        |                 |
-                        |                 v
-                        |        +--------------+
-                        +------->|  ESP32-S3    |
+       +---------->| MOSFET  |            v
+       |           | Circuit |           GND
+       |           +---------+            
+       |                |                 
+       |                |                 
+       |                |                 
+       |                |        +--------------+
+       +----------------+------->|  ESP32-S3    |
                                  |    Mini      |
                                  |   (ADC1)     |
                                  +--------------+
-                                       ^
-                                       |
-                                       |
-                                 +---------------+
-                                 | UI Controls   |
-                                 | OLED, Pots,   |
-                                 |   Button      |
-                                 +---------------+
+                                      ^
+                                      |
+                                      |
+                                +---------------+
+                                | UI Controls   |
+                                | OLED, Pots,   |
+                                | Button,E-ink  |
+                                +---------------+
 ```
 
 ## Pin Assignments
@@ -70,6 +70,35 @@ PIN_POT_X   (7) -> ADC input for X-axis scaling
 PIN_BUTTON  (8) -> Digital input for mode button
 PIN_TPI     (9) -> Test Point Input control
 ```
+
+## Components List
+
+- ESP32-S3 Mini development board
+- CD74HC4067 16-channel multiplexer
+- SSD1306 OLED display (128x64)
+- Adafruit 2.9" Tri-Color eInk Display FeatherWing (IL0373)
+- 16 precision resistors for measurement array
+- MOSFET circuit for low-resistance measurements
+- Push button for measurement control
+- Various connectors and headers
+
+## Display Connections
+
+### OLED Display (SSD1306)
+- VCC → 3.3V
+- GND → GND
+- SCL → GPIO22
+- SDA → GPIO21
+
+### E-ink Display (IL0373)
+- VIN → 3.3V
+- GND → GND
+- SCK → GPIO36
+- MOSI → GPIO35
+- DC → GPIO37
+- CS → GPIO38
+- RST → GPIO39
+- BUSY → GPIO40
 
 ## Detailed Connections
 ### CD74HC4067 Multiplexer
@@ -146,18 +175,6 @@ Solar Cell+
 ### Power Supply
 - ESP32-S3 Mini is powered via USB (5V)
 - Solar cell or DUT is only connected to measurement inputs
-
-### OLED Display (SSD1306)
-- VCC -> 3.3V
-- GND -> GND
-- SCL -> GPIO10
-- SDA -> GPIO9
-- Uses I2C address 0x3C
-
-### Control Interface
-- POT Y -> GPIO2 (Vertical scaling)
-- POT X -> GPIO3 (Horizontal scaling)
-- Button -> GPIO0 (with internal pull-up)
 
 ## Operating Modes
 

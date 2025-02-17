@@ -54,11 +54,11 @@ The e-ink display provides a persistent view of your latest results that remains
 The web interface provides real-time visualization of measurements, displaying both the I-V curve (blue) and power curve (pink). Key measurements like Maximum Power Point (MPP), Short Circuit Current (Isc), and Open Circuit Voltage (Voc) are shown in an easy-to-read card layout.
 
 ## Hardware Overview
-```markdown
+```ascii
 +-------------+     +----------+     +-----------+
-|  Solar      |     | Resistor |     |   MUX    |
-|  Cell       |---->|  Array   |---->| CD74HC   |
-| (DUT)       |     | (R5-R20) |     | 4067     |
+|  Solar      |     | Resistor |     |    MUX    |
+|  Cell       |---->|  Array   |---->|  CD74HC   |
+| (DUT)       |     | (R1-R16) |     |   4067    |
 +-------------+     +----------+     +-----------+
        |                                  |
        |                                  |
