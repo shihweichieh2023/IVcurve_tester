@@ -4,7 +4,6 @@ A versatile measurement tool for characterizing low-power energy sources, with a
 
 Originally developed for DIYbio and Hackteria workshops, this analyzer is perfect for:
 
- 
 - Testing Dye-Sensitized Solar Cells (DSSC) with natural dyes
 - Characterizing small commercial solar cells
 - Evaluating thermoelectric generators (TEGs)
@@ -15,23 +14,44 @@ The logarithmic resistor array and optional MOSFET configuration allow measureme
 
 ## Features
 
- 
 - Real-time I-V curve measurement
 - Maximum Power Point (MPP) tracking
 - OLED display with live readings
+- E-ink display for persistent measurements
 - Logarithmic resistor array for wide measurement range
 - Optional MOSFET for low-resistance measurements
 - Built-in voltage divider for measuring higher voltage sources (>3.3V)
 
-## Web Interface
-![Web interface showing real-time I-V curve and power measurements](./images/Screenshot_webinterface.jpg)
+## Button Control
+The device features a single button for measurement control:
 
-The web interface provides real-time visualization of measurements, displaying both the I-V curve (blue) and power curve (pink). Key measurements like Maximum Power Point (MPP), Short Circuit Current (Isc), and Open Circuit Voltage (Voc) are shown in an easy-to-read card layout.
+- OLED display: continously provides real-time measurement data
+- Single press: Initiates a new I-V curve measurement to be displayed on the E-ink display and sent to the serial.
 
 ## Example I-V Curve
 ![Typical solar cell I-V curve showing short circuit current (Isc), open circuit voltage (Voc), and Maximum Power Point (MPP)](./images/typical_IV_curve.jpg)
 
 The analyzer measures both the I-V characteristics (blue curve) and power output (red curve) by sweeping through different load resistances. The Maximum Power Point (MPP) represents the optimal operating point where the product of voltage and current yields the highest power output.
+
+## E-Ink Display Interface
+The analyzer features a 2.9" tri-color (black, white, and red) e-ink display (Adafruit IL0373) for persistent measurement visualization. The e-ink display offers:
+
+- High contrast, daylight-readable display
+- Persistent display of measurements even when powered off
+- 296x128 pixel resolution
+- Low power consumption
+- E-ink display: Shows the I-V curve with key measurements (Voc, Isc, MPP) 
+- The previous measurement is displayed too in lower contrast to compare
+
+The e-ink display provides a persistent view of your latest results that remains visible even when the device is powered off.
+
+![E-ink display showing I-V curve measurements](./images/prototype/Prototype_e-ink_display.jpg)
+*The e-ink display shows the current measurement in dark contrast while the previous measurement is shown in lighter contrast for easy comparison.*
+
+## Web Interface
+![Web interface showing real-time I-V curve and power measurements](./images/Screenshot_webinterface.jpg)
+
+The web interface provides real-time visualization of measurements, displaying both the I-V curve (blue) and power curve (pink). Key measurements like Maximum Power Point (MPP), Short Circuit Current (Isc), and Open Circuit Voltage (Voc) are shown in an easy-to-read card layout.
 
 ## Hardware Overview
 ```markdown
@@ -44,14 +64,14 @@ The analyzer measures both the I-V characteristics (blue curve) and power output
        |                                  |
        |                                  |
        |           +---------+            |
-       +---------->| MOSFET  |            |
-                   | Circuit |            |
-                   +---------+            |
-                        |                 |
-                        |                 |
-                        |                 v
-                        |        +--------------+
-                        +------->|  ESP32-S3    |
+       +---------->| MOSFET  |            v
+       |           | Circuit |           GND
+       |           +---------+            
+       |                |                 
+       |                |                 
+       |                |                 
+       |                |        +--------------+
+       +----------------+------->|  ESP32-S3    |
                                  |    Mini      |
                                  |   (ADC1)     |
                                  +--------------+
@@ -61,13 +81,12 @@ The analyzer measures both the I-V characteristics (blue curve) and power output
                                 +---------------+
                                 | UI Controls   |
                                 | OLED, Pots,   |
-                                |   Button      |
+                                | Button,E-ink  |
                                 +---------------+
 ```
 
 ## Key Components
 
- 
 - ESP32-S3 Mini
 - CD74HC4067 16-channel multiplexer
 - SSD1306 OLED display
@@ -122,14 +141,12 @@ Future development plans for the I-V Curve Analyzer include:
 
 1. **Enhanced Multiplexer**: Replace the current multiplexer with ADG706 for lower internal resistance, improving measurement accuracy especially in the low-resistance range.
 
-2. **Sunlight-Readable Display**: Upgrade to an e-paper display to enhance readability in direct sunlight, making outdoor measurements more convenient.
-
-3. **IoT Integration**: Utilize the ESP32's WiFi capabilities to upload measurements to an IoT cloud service for:
+2. **IoT Integration**: Utilize the ESP32's WiFi capabilities to upload measurements to an IoT cloud service for:
    - Remote monitoring and data logging
    - Long-term performance analysis
    - Data sharing and collaboration
 
-4. **On-Board Storage**: Implement measurement storage and numbering on the chip for:
+3. **On-Board Storage**: Implement measurement storage and numbering on the chip for:
    - Offline data collection
    - Sequential measurement tracking
    - Later retrieval and analysis
