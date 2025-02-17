@@ -122,22 +122,22 @@ GND   |12      13| S3
 ### Resistor Array
 Connected to MUX channels, values in ohms:
 ```markdown
-R5  ->    83Ω
-R6  ->    95Ω
-R7  ->   114Ω
-R8  ->   142Ω
-R9  ->   165Ω
-R10 ->   212Ω
-R11 ->   278Ω
-R12 ->   383Ω
-R13 ->   516Ω
-R14 ->   764Ω
-R15 ->   972Ω
-R16 ->  1878Ω
-R17 ->  3211Ω
-R18 ->  4723Ω
-R19 ->  6856Ω
-R20 -> 10317Ω
+R1  ->  10317Ω
+R2  ->   6856Ω
+R3  ->   4723Ω
+R4  ->   3211Ω
+R5  ->   1878Ω
+R6  ->    972Ω
+R7  ->    764Ω
+R8  ->    516Ω
+R9  ->    383Ω
+R10 ->    278Ω
+R11 ->    212Ω
+R12 ->    165Ω
+R13 ->    142Ω
+R14 ->    114Ω
+R15 ->     95Ω
+R16 ->     83Ω
 ```
 
 ### MOSFET Circuit Configuration
@@ -166,7 +166,7 @@ Solar Cell+
 
 ### Solar Cell / Device Under Test (DUT)
 - **Positive Terminal**: 
-  - Connects to all resistors (R5-R20) in parallel
+  - Connects to all resistors (R1-R16) in parallel
   - Connects to MOSFET drain
 - **Negative Terminal**: 
   - Connects to MUX COM pin (9)
@@ -179,14 +179,14 @@ Solar Cell+
 ## Operating Modes
 
 ### Current Implementation
-- Uses resistor array only (R5-R20)
+- Uses resistor array only (R1-R16)
 - MOSFET kept OFF (GPIO8 = LOW)
 - Measures through each resistor sequentially
 
 ### Future Enhancement: MOSFET Integration
 Can operate in three modes:
 1. MOSFET only (very low resistance when ON)
-2. Resistor only (R5-R20 through MUX)
+2. Resistor only (R1-R16 through MUX)
 3. MOSFET + Resistor in parallel (for intermediate values)
 
 This would triple the measurement points, particularly useful in the low-resistance region where maximum power often occurs.
@@ -205,7 +205,7 @@ This would triple the measurement points, particularly useful in the low-resista
 4. Consider MOSFET heat dissipation during parallel operation
 
 ## Measurement Process
-1. Cycles through resistors R5-R20
+1. Cycles through resistors R1-R16
 2. Measures voltage across each load
 3. Calculates current using measured resistance values
 4. Computes power and identifies Maximum Power Point (MPP)
