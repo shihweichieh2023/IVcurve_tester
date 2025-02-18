@@ -151,7 +151,7 @@ volatile bool buttonPressed = false;
 void setup() {
   Serial.begin(115200);
   delay(500);  // Give more time for Serial to initialize
-  while (!Serial) { delay(10); }  // Wait for Serial to be ready
+  //while (!Serial) { delay(10); }  // Wait for Serial to be ready
   Serial.println("=========== Initializing I-V Scanner ===========");
   Serial.println("");
   delay(100);
@@ -587,7 +587,7 @@ void drawOnEink() {
   delay(2000);       // Wait for the display to complete its refresh
   
   eink.powerDown(); // Power down the display
-  delay(100);       // Wait for power down to complete
+  delay(1000);       // Wait for power down to complete
 }
 
 void drawOnEinkBackground() {
