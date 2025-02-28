@@ -5,6 +5,8 @@
 #define BOARD_ESP32S3_MINI
 //#define BOARD_ESP32C3_SUPER_MINI
 
+#define hasEink
+
 #ifdef BOARD_ESP32S3_MINI
     #define PIN_MUX_S0      2   // MUX control pin S0
     #define PIN_MUX_S1      6   // MUX control pin S1
@@ -15,6 +17,22 @@
     #define PIN_POT_X       18  // ADC input for X-axis scaling
     #define PIN_BUTTON      35  // Digital input for mode button
     #define PIN_TPI         10  // Test Point Input control
+
+    // I2C Pin Definitions
+    #define SDA_PIN 8   // Default I2C SDA for S3-Mini
+    #define SCL_PIN 9   // Default I2C SCL for S3-Mini
+    
+    // E-ink display pins
+    #define EPD_DC      38
+    #define EPD_CS      37
+    #define SRAM_CS     33  
+    #define EPD_RESET   10
+    #define EPD_BUSY    -1
+
+    // SPI Pins for E-ink
+    #define SCLK        12
+    #define MISO        13
+    #define MOSI        11
 #endif
 
 #ifdef BOARD_ESP32C3_SUPER_MINI
@@ -27,6 +45,22 @@
     #define PIN_POT_X       3   // ADC input for X-axis scaling
     #define PIN_BUTTON      7   // Digital input for mode button
     #define PIN_TPI         20  // Test Point Input control
+
+    // I2C Pin Definitions
+    #define SDA_PIN 8   // Default I2C SDA
+    #define SCL_PIN 9   // Default I2C SCL
+    
+    // E-ink display pins
+    #define EPD_DC      5
+    #define EPD_CS      6
+    #define SRAM_CS     9  
+    #define EPD_RESET   -1
+    #define EPD_BUSY    -1
+
+    // SPI Pins for E-ink
+    #define SCLK        8
+    #define MISO        4
+    #define MOSI        3
 #endif
 
 // Verify that a board is selected

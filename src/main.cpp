@@ -36,22 +36,6 @@ Hardware Setup:
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 #define SCREEN_ADDRESS 0x3C // OLED display I2C address
 
-// E-ink display pins
-#define EPD_DC      38
-#define EPD_CS      37
-#define SRAM_CS     33  
-#define EPD_RESET   10
-#define EPD_BUSY    -1
-
-// SPI Pins for E-ink
-#define SCLK        12
-#define MISO        13
-#define MOSI        11
-
-// I2C Pin Definitions
-#define SDA_PIN 8   // Default I2C SDA for S3-Mini
-#define SCL_PIN 9   // Default I2C SCL for S3-Mini
-
 // Declaration for displays
 Adafruit_SSD1306 oled(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
 ThinkInk_290_Tricolor_Z10 eink(EPD_DC, EPD_RESET, EPD_CS, SRAM_CS, EPD_BUSY, &SPI);
@@ -88,14 +72,14 @@ int BUTT_pin = PIN_BUTTON;// Digital input for mode button
 int TPI_pin = PIN_TPI;    // Test Point Input control
 
 // Measurement and Display Variables
-const int resistorCorrection = 26;  // Value to subtract from resistor values
+const int resistorCorrection = 66;  // Value to subtract from resistor values
 int overlay = 0; // Display overlay state
 int scaleY;      // Y-axis (current) scaling factor from potentiometer
 int scaleX;      // X-axis (voltage) scaling factor from potentiometer
 const int average = 5;           // Number of readings to average
 const int delayLoop = 100;        // Main loop delay
-const int delayAveraging = 12;    // Delay between ADC readings for averaging
-const int delayMuxSwitch = 2;    // Delay after MUX switching for voltage stabilization
+const int delayAveraging = 22;    // Delay between ADC readings for averaging
+const int delayMuxSwitch = 10;    // Delay after MUX switching for voltage stabilization
 
 // Interface Control Variables
 bool serialMode = 0;          // Serial output mode flag
@@ -194,7 +178,9 @@ void setup() {
   delay(10);
 
   // Initialize E-ink
+  #ifdef hasEink
   initEink();
+  #endif
   
   // Show credits screen
   showCreditsScreen();
@@ -234,6 +220,7 @@ void loop() {
   mppIndex = 0;
 
   // Complete full measurement cycle
+  #ifdef BOARD_ESP32S3_MINI
   for (int i = 0; i < 16; i++) {
     vocValues[i] = readMux(i);  // Get voltage directly from return value
     icalValues[i] = vocValues[i] / (resistorValues[i] - resistorCorrection);  // Calculate current in mA
@@ -255,6 +242,31 @@ void loop() {
     
     delay(delayAveraging);
   }
+  #endif
+
+#ifdef BOARD_ESP32C3_SUPER_MINI
+  for (int i = 0; i < 14; i++) {
+    vocValues[i] = readMux(i);  // Get voltage directly from return value
+    icalValues[i] = vocValues[i] / (resistorValues[i] - resistorCorrection);  // Calculate current in mA
+    powValues[i] = vocValues[i] * icalValues[i];  // Calculate power
+    
+    // Update maximum values
+    if (powValues[i] > maxPower) {
+      maxPower = powValues[i];
+      mppIndex = i;
+    }
+    
+    // Find absolute maximum current and voltage
+    if (icalValues[i] > maxCurrent) {
+      maxCurrent = icalValues[i];
+    }
+    if (vocValues[i] > maxVoltage) {
+      maxVoltage = vocValues[i];
+    }
+    
+    delay(delayAveraging);
+  }
+#endif
 
   // Update IV server with new measurement data
   IVData data;
@@ -279,7 +291,9 @@ void loop() {
     Serial.println("Button pressed!");
     
     // First draw the e-ink display with current measurement in red and previous in black
+    #ifdef hasEink
     drawOnEink();
+    #endif
     printMeasurements();
     
     // Only after displaying, store current as previous for next time
@@ -544,7 +558,7 @@ void drawOnEink() {
   eink.setCursor(184, 40);
   eink.print("MPP:");
   //eink.setCursor(184, 52);
-  eink.setTextSize(3);
+  eink.setTextSize(2);
   eink.print(maxPower/1000, 2);  // Try multiplying by 1000
   eink.setTextSize(1);
   eink.setCursor(280, 40);
