@@ -16,11 +16,12 @@ The logarithmic resistor array and optional MOSFET configuration allow measureme
 
 - Real-time I-V curve measurement
 - Maximum Power Point (MPP) tracking
+- ADC (ADS1115) for precise voltage measurements
 - OLED display with live readings
 - E-ink display for persistent measurements
 - Logarithmic resistor array for wide measurement range
 - Optional MOSFET for low-resistance measurements
-- Built-in voltage divider for measuring higher voltage sources (>3.3V)
+- Optional: Built-in voltage divider for measuring higher voltage sources (>3.3V)
 
 ## Button Control
 The device features a single button for measurement control:
@@ -55,46 +56,51 @@ The web interface provides real-time visualization of measurements, displaying b
 
 ## Hardware Overview
 ```ascii
-+-------------+     +----------+     +-----------+
-|  Solar      |     | Resistor |     |    MUX    |
-|  Cell       |---->|  Array   |---->|  CD74HC   |
-| (DUT)       |     | (R1-R16) |     |   4067    |
-+-------------+     +----------+     +-----------+
-       |                                  |
-       |                                  |
-       |                                  |
-       |           +---------+            |
-       +---------->| MOSFET  |            v
-       |           | Circuit |           GND
-       |           +---------+            
-       |                |                 
-       |                |                 
-       |                |                 
-       |                |        +--------------+
-       +----------------+------->|  ESP32-S3    |
-                                 |    Mini      |
-                                 |   (ADC1)     |
-                                 +--------------+
-                                      ^
-                                      |
-                                      |
-                                +---------------+
-                                | UI Controls   |
-                                | OLED, Pots,   |
-                                | Button,E-ink  |
-                                +---------------+
++-------------+     +-----------+     +--------------+
+|  Solar      |     | ADS1115   |     |  ESP32-S3    |
+|  Cell       |---->| ADC (I2C) |---->|    Mini      |
+| (DUT)       |     |           |     | (I2C Master) |
++-------------+     +-----------+     +--------------+
+       |                                    ^
+       |                                    |
+       |                                    |
+       |                                    |
+       |           +---------+              |
+       +---------->| MOSFET  |              |
+       |           | Circuit |              |
+       |           +---------+        +---------------+
+       |                |            | UI Controls   |
+       |                v            | OLED, Pots,   |
+       |               GND           | Button,E-ink  |
+       |                             +---------------+
+       |
+       |
+       |            +----------+     +-----------+
+       +----------->| Resistor |     |    MUX    |
+                    |  Array   |---->|  ADG706   |
+                    | (R1-R16) |     | or 4067   |
+                    +----------+     +-----------+
+                                          |
+                                          |
+                                          v
+                                         GND
 ```
 
 ## Key Components
 
-- ESP32-S3 Mini
-- CD74HC4067 16-channel multiplexer
+- ESP32-S3 
+- ADG705 16-channel multiplexer
+   - or lower precision: CD74HC4067 16-channel multiplexer
 - SSD1306 OLED display
-- 16 precision resistors (83Ω - 10.3kΩ)
+- 16 precision resistors (15Ω - 20kΩ)
 - MOSFET for low-resistance measurements
+- ADS1115 ADC for precision Analog Voltage measurements
 
 ## Technical Notes
-### Resistance Measurement Accuracy
+### Low internal resistance with ADG706 Multiplexer
+To be able to measure the currents at high load (low voltages), which completes the curve to the end, a high quality multiplexer is needed, with very low internal resistance. This is the reason why ADG706 was chosen over the CD74HC4067.
+
+#### Resistance Measurement Accuracy with 4067
 The CD74HC4067 multiplexer has a significant internal ON resistance (RON) of approximately 70Ω that affects measurements. Rather than compensating for this in software, we've directly measured each resistor through the MUX circuit. The resistor values listed in the code (83Ω - 10.3kΩ) already include this MUX internal resistance, ensuring accurate current calculations without additional compensation.
 
 For example:
@@ -103,6 +109,12 @@ For example:
 - This combined resistance is what's stored in the code
 - No additional software compensation needed
 - Measurements remain accurate across the full range
+
+### Sensitivity of the ESP32 internal ADC
+The ESP32 is known for quite a shitty ADC, non-linear in the middle range, with a very slow slope near the ends. This can cause significant issues with accurate voltage measurements, especially at low voltages.
+
+### Use external ADC, such as ADS1115
+Solves the issue.
 
 ## Getting Started
 1. Clone this repository
@@ -130,13 +142,6 @@ The project includes a custom PCB design for a MUX ADG706 for more reliable meas
 ![Prototype during DSSC measurement](images/prototype/I-V-curve_DSSC_measurement.jpg)
 *First prototype of the I-V Curve Analyzer testing a series of Dye-Sensitized Solar Cells (DSSC). The compact design allows for easy in-line measurements during workshops and experiments.*
 
-### Component Library
-The [`ad706/`](MUX-ADG706/ad706/) directory contains all necessary files for the ADG706 multiplexer:
-
-- [`ADG706BRUZ-REEL7.kicad_sym`](MUX-ADG706/ad706/ADG706BRUZ-REEL7.kicad_sym) - KiCad symbol file
-- [`SOP65P640X120-28N.kicad_mod`](MUX-ADG706/ad706/SOP65P640X120-28N.kicad_mod) - Footprint for the 28-pin SOP package
-- [`ADG706BRUZ-REEL7.step`](MUX-ADG706/ad706/ADG706BRUZ-REEL7.step) - 3D model for visualization
-
 ### Project Files
 The KiCad project (`MUX-ADG706/`) contains:
 
@@ -153,9 +158,9 @@ Code and hardware design by Marc Dusseiller (@dusjagr), with assistance from the
 ## Future Improvements
 Future development plans for the I-V Curve Analyzer include:
 
-1. **Enhanced Multiplexer**: Replace the current multiplexer with ADG706 for lower internal resistance, improving measurement accuracy especially in the low-resistance range.
+1. DONE **Enhanced Multiplexer**: Replace the current multiplexer with ADG706 for lower internal resistance, improving measurement accuracy especially in the low-resistance range.
 
-2. **IoT Integration**: Utilize the ESP32's WiFi capabilities to upload measurements to an IoT cloud service for:
+2. ONGOING **IoT Integration**: Utilize the ESP32's WiFi capabilities to upload measurements to an IoT cloud service for:
    - Remote monitoring and data logging
    - Long-term performance analysis
    - Data sharing and collaboration

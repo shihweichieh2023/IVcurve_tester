@@ -13,71 +13,104 @@ To select your board, edit the `include/board_config.h` file and uncomment the a
 
 ## Block Diagram
 ```ascii
-+-------------+     +----------+     +-----------+
-|  Solar      |     | Resistor |     |    MUX    |
-|  Cell       |---->|  Array   |---->|  CD74HC   |
-| (DUT)       |     | (R1-R16) |     |   4067    |
-+-------------+     +----------+     +-----------+
-       |                                  |
-       |                                  |
-       |                                  |
-       |           +---------+            |
-       +---------->| MOSFET  |            v
-       |           | Circuit |           GND
-       |           +---------+            
-       |                |                 
-       |                |                 
-       |                |                 
-       |                |        +--------------+
-       +----------------+------->|  ESP32-S3    |
-                                 |    Mini      |
-                                 |   (ADC1)     |
-                                 +--------------+
-                                      ^
-                                      |
-                                      |
-                                +---------------+
-                                | UI Controls   |
-                                | OLED, Pots,   |
-                                | Button,E-ink  |
-                                +---------------+
++-------------+     +-----------+     +--------------+
+|  Solar      |     | ADS1115   |     |  ESP32-S3    |
+|  Cell       |---->| ADC (I2C) |---->|    Mini      |
+| (DUT)       |     |           |     | (I2C Master) |
++-------------+     +-----------+     +--------------+
+       |                                    ^
+       |                                    |
+       |                                    |
+       |                                    |
+       |           +---------+              |
+       +---------->| MOSFET  |              |
+       |           | Circuit |              |
+       |           +---------+        +---------------+
+       |                |            | UI Controls   |
+       |                v            | OLED, Pots,   |
+       |               GND           | Button,E-ink  |
+       |                             +---------------+
+       |
+       |
+       |            +----------+     +-----------+
+       +----------->| Resistor |     |    MUX    |
+                    |  Array   |---->|  ADG706   |
+                    | (R1-R16) |     | or 4067   |
+                    +----------+     +-----------+
+                                          |
+                                          |
+                                          v
+                                         GND
 ```
 
 ## Pin Assignments
 
 ### ESP32-S3 Mini
 ```markdown
+# MUX Control
 PIN_MUX_S0  (2)  -> MUX control pin S0
 PIN_MUX_S1  (6)  -> MUX control pin S1
 PIN_MUX_S2  (4)  -> MUX control pin S2
 PIN_MUX_S3  (5)  -> MUX control pin S3
+
+# Analog & Digital IO
 PIN_SIG     (1)  -> ADC input for voltage measurement
 PIN_POT_Y   (16) -> ADC input for Y-axis scaling
 PIN_POT_X   (18) -> ADC input for X-axis scaling
 PIN_BUTTON  (35) -> Digital input for mode button
-PIN_TPI     (10) -> Test Point Input control
+PIN_TPI     (10) -> MOSFET control pin
+
+# I2C Interface (OLED & ADS1115)
+SDA_PIN     (8)  -> I2C Data
+SCL_PIN     (9)  -> I2C Clock
+
+# E-ink Display (SPI)
+EPD_DC      (38) -> E-ink DC
+EPD_CS      (37) -> E-ink CS
+SRAM_CS     (33) -> SRAM CS
+EPD_RESET   (10) -> E-ink Reset
+SCLK        (12) -> SPI Clock
+MISO        (13) -> SPI MISO
+MOSI        (11) -> SPI MOSI
 ```
 
 ### ESP32-C3 Super Mini
 ```markdown
-PIN_MUX_S0  (2) -> MUX control pin S0
-PIN_MUX_S1  (3) -> MUX control pin S1
-PIN_MUX_S2  (4) -> MUX control pin S2
-PIN_MUX_S3  (5) -> MUX control pin S3
-PIN_SIG     (1) -> ADC input for voltage measurement
-PIN_POT_Y   (6) -> ADC input for Y-axis scaling
-PIN_POT_X   (7) -> ADC input for X-axis scaling
-PIN_BUTTON  (8) -> Digital input for mode button
-PIN_TPI     (9) -> Test Point Input control
+# MUX Control
+PIN_MUX_S0  (21) -> MUX control pin S0
+PIN_MUX_S1  (10) -> MUX control pin S1
+PIN_MUX_S2  (2)  -> MUX control pin S2
+PIN_MUX_S3  (1)  -> MUX control pin S3
+
+# Analog & Digital IO
+PIN_SIG     (0)  -> ADC input for voltage measurement
+PIN_POT_Y   (4)  -> ADC input for Y-axis scaling
+PIN_POT_X   (3)  -> ADC input for X-axis scaling
+PIN_BUTTON  (7)  -> Digital input for mode button
+PIN_TPI     (20) -> MOSFET control pin
+
+# I2C Interface (OLED & ADS1115)
+SDA_PIN     (8)  -> I2C Data
+SCL_PIN     (9)  -> I2C Clock
+
+# E-ink Display (SPI)
+EPD_DC      (5)  -> E-ink DC
+EPD_CS      (6)  -> E-ink CS
+SRAM_CS     (9)  -> SRAM CS
+SCLK        (8)  -> SPI Clock
+MISO        (4)  -> SPI MISO
+MOSI        (3)  -> SPI MOSI
 ```
 
 ## Components List
 
 - ESP32-S3 Mini development board
-- CD74HC4067 16-channel multiplexer
+- ADG705 16-channel multiplexer
+   - or lower precision: CD74HC4067 16-channel multiplexer
 - SSD1306 OLED display (128x64)
 - Adafruit 2.9" Tri-Color eInk Display FeatherWing (IL0373)
 - 16 precision resistors for measurement array
+- ADS1115 analog-to-digital converter
 - MOSFET circuit for low-resistance measurements
 - Push button for measurement control
 - Various connectors and headers
@@ -118,6 +151,13 @@ S1    |11      14| S2
 GND   |12      13| S3
       +-----------+
 ```
+
+### ADS1115 Analog-to-Digital Converter
+- VCC → 3.3V
+- GND → GND
+- SDA → GPIO8  (I2C Data)
+- SCL → GPIO9  (I2C Clock)
+- A0  → Positiv Voltage of the panel for measurement
 
 ### Resistor Array
 Connected to MUX channels, values in ohms:
