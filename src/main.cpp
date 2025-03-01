@@ -30,6 +30,7 @@ Hardware Setup:
 #include "config.h"
 #include "board_config.h"
 #include "IVserver.h"
+#include <Adafruit_ADS1X15.h>
 
 // Display Configuration
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
@@ -39,6 +40,7 @@ Hardware Setup:
 // Declaration for displays
 Adafruit_SSD1306 oled(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire);
 ThinkInk_290_Tricolor_Z10 eink(EPD_DC, EPD_RESET, EPD_CS, SRAM_CS, EPD_BUSY, &SPI);
+Adafruit_ADS1115 ads;  // Create an ADS1115 instance
 
 // Global IV Server instance
 //IVserver server(80);  // Create an IV server on port 80
@@ -71,15 +73,22 @@ int POTX_pin = PIN_POT_X; // ADC input for X-axis scaling
 int BUTT_pin = PIN_BUTTON;// Digital input for mode button
 int TPI_pin = PIN_TPI;    // Test Point Input control
 
-// Measurement and Display Variables
-const int resistorCorrection = 66;  // Value to subtract from resistor values
+// Hardware Variables
+#ifdef MUX_ADG706
+const int resistorCorrection = 64;  // Correction Value for ADG706
+#endif
+#ifdef MUX_4051
+const int resistorCorrection = 25;  // For old Mux
+#endif
+
+// Measurement and display variables
 int overlay = 0; // Display overlay state
 int scaleY;      // Y-axis (current) scaling factor from potentiometer
 int scaleX;      // X-axis (voltage) scaling factor from potentiometer
-const int average = 5;           // Number of readings to average
-const int delayLoop = 100;        // Main loop delay
-const int delayAveraging = 22;    // Delay between ADC readings for averaging
-const int delayMuxSwitch = 10;    // Delay after MUX switching for voltage stabilization
+const int average = 3;           // Number of readings to average
+const int delayLoop = 10;        // Main loop delay
+const int delayAveraging = 5;    // Delay between ADC readings for averaging
+const int delayMuxSwitch = 2;    // Delay after MUX switching for voltage stabilization
 
 // Interface Control Variables
 bool serialMode = 0;          // Serial output mode flag
@@ -119,8 +128,8 @@ int resistorValues[20]{
   282,
   212,
   165,
-  140,
-  112,
+  141,
+  113,
   93,
   81,
   81,
@@ -139,7 +148,7 @@ void setup() {
   Serial.println("=========== Initializing I-V Scanner ===========");
   Serial.println("");
   delay(100);
-  
+
   // Initialize MUX control pins
   pinMode(s0, OUTPUT);
   pinMode(s1, OUTPUT);
@@ -157,7 +166,13 @@ void setup() {
   
   // Initialize OLED
   initOLED();
-  
+
+  // Initialize ADS1115
+  #ifdef hasADS1115
+  ads.begin(0x48);
+  ads.setGain(GAIN_TWO);    // 2x gain   +/- 2.048V  1 bit = 0.0625mV
+  #endif
+
   // Show logo
   showLogo_hackteria();
   delay(1000);
@@ -271,8 +286,8 @@ void loop() {
   // Update IV server with new measurement data
   IVData data;
   data.maxPower = maxPower;
-  data.maxCurrent = maxCurrent;
-  data.maxVoltage = maxVoltage;
+  data.maxCurrent = icalValues[mppIndex];  // Use current at MPP
+  data.maxVoltage = vocValues[mppIndex];   // Use voltage at MPP
   data.numPoints = 16;
   
   // Copy array values
@@ -313,6 +328,42 @@ void loop() {
   delay(delayLoop);
 }
 
+int readMux(int channel) {
+  int sig = 0;
+  float multiplier = 0.0625F; // 2.048V range = 0.0625mV per bit
+  int16_t adc0;
+  
+  // Set the channel on MUX
+  digitalWrite(s0, bitRead(channel, 0));
+  digitalWrite(s1, bitRead(channel, 1));
+  digitalWrite(s2, bitRead(channel, 2));
+  digitalWrite(s3, bitRead(channel, 3));
+  delay(delayMuxSwitch);  // Delay for voltage stabilization after switching
+  
+  // Take multiple readings and average
+  for(int i = 0; i < average; i++) {
+    // Check for button press during measurement
+    if (digitalRead(PIN_BUTTON) == LOW) {  // Button pressed
+      buttonPressed = true;
+    }
+
+
+    
+
+    #ifdef hasADS1115
+    adc0 = ads.readADC_SingleEnded(0);
+    sig += adc0 * multiplier; // read from ADC1115
+    #endif
+    #ifdef hasESPADC
+    sig += analogReadMilliVolts(SIG_pin);  // Multiply by 2 to account for voltage divider
+    #endif
+    
+    delay(delayAveraging);
+  }
+  
+  return sig / average;
+}
+
 void printMeasurements() {
   Serial.println("    ");
   Serial.println("=========== I calculated ===========");
@@ -344,30 +395,6 @@ void printMeasurements() {
   Serial.println(" uW");
   Serial.println("=========== DONE ===========");
   delay(10);
-}
-
-int readMux(int channel) {
-  int sig = 0;
-  
-  // Set the channel on MUX
-  digitalWrite(s0, bitRead(channel, 0));
-  digitalWrite(s1, bitRead(channel, 1));
-  digitalWrite(s2, bitRead(channel, 2));
-  digitalWrite(s3, bitRead(channel, 3));
-  delay(delayMuxSwitch);  // Delay for voltage stabilization after switching
-  
-  // Take multiple readings and average
-  for(int i = 0; i < average; i++) {
-    // Check for button press during measurement
-    if (digitalRead(PIN_BUTTON) == LOW) {  // Button pressed
-      buttonPressed = true;
-    }
-    
-    sig += analogReadMilliVolts(SIG_pin) * 2;  // Multiply by 2 to account for voltage divider
-    delay(delayAveraging);
-  }
-  
-  return sig / average;
 }
 
 void initOLED() {
@@ -505,6 +532,7 @@ void drawOnEink() {
       }
     }
     
+    
     // Connect lowest V point (index 15) to origin for previous curve
     float prev_last_power = prevVocValues[15] * prevIcalValues[15];
     int x1 = 20 + (int)(prevVocValues[15] * scaleX_auto);
@@ -512,6 +540,7 @@ void drawOnEink() {
     x1 = constrain(x1, 20, 180);
     y1 = constrain(y1, 10, 110);
     drawDashedLine(x1, y1, 20, 110, EPD_BLACK, 2, 2);  // Draw to origin (20,110)
+    
   }
 
   // Draw power curve (current measurement in black)
@@ -542,7 +571,7 @@ void drawOnEink() {
   x1 = constrain(x1, 20, 180);
   y1 = constrain(y1, 10, 110);
   eink.drawLine(x1, y1, 20, 110, EPD_BLACK);  // Solid line to origin
-  
+
   // Add MPP dot for current power curve
   if (maxPower > 0 && mppIndex >= 0 && mppIndex < 16) {
     float mpp_power = vocValues[mppIndex] * icalValues[mppIndex];

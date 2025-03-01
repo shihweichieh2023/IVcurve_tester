@@ -5,6 +5,15 @@
 #define BOARD_ESP32S3_MINI
 //#define BOARD_ESP32C3_SUPER_MINI
 
+// Choose which MUX is used
+#define MUX_ADG706
+//#define MUX_4051
+
+// Choose which ADC is used
+#define hasADS1115
+//#define hasESPADC
+
+// Does the system has the E-ink display?
 #define hasEink
 
 #ifdef BOARD_ESP32S3_MINI
