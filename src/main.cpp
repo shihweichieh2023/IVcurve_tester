@@ -182,7 +182,9 @@ void setup() {
 
   // Initialize network and server
   setupNetwork();
-  setupIVserver();
+  if (WiFi.status() == WL_CONNECTED) {
+    setupIVserver();
+  }
   
   Serial.println("");
   Serial.println("=========== IV Server started ===========");
@@ -213,7 +215,9 @@ void setup() {
 
 void loop() {
   // Handle IV server requests
-  handleIVserver();
+  if (WiFi.status() == WL_CONNECTED) {
+    handleIVserver();
+  }
   
   // Read scaling potentiometers
   scaleX = analogReadMilliVolts(POTX_pin);
@@ -296,7 +300,9 @@ void loop() {
     data.icalValues[i] = icalValues[i];
     data.powValues[i] = powValues[i];
   }
-  updateIVserverData(data);
+  if (WiFi.status() == WL_CONNECTED) {
+    updateIVserverData(data);
+  }
   
   // Update OLED display continuously
   drawIVline();
@@ -641,6 +647,16 @@ void drawOnEink() {
   eink.print(vocValues[0]/1000.0, 2);
   eink.print("V");
   
+  // Calculate and display Fill Factor (FF)
+  float theoreticalMax = (vocValues[0]/1000.0) * icalValues[15];  // Voc * Isc
+  float fillFactor = (maxPower / theoreticalMax) / 10;  // Convert to percentage
+  
+  eink.setCursor(184, 94);
+  eink.setTextColor(EPD_BLACK);
+  eink.print("FF :");
+  eink.print((int)fillFactor);
+  eink.print("%");
+  
   // Add title in red
   eink.setTextSize(2);
   eink.setTextColor(EPD_RED);
@@ -828,7 +844,7 @@ void drawBackground()
 {  
   oled.clearDisplay();
   // Draw main frame for I-V curve (100x44 pixels)
-  oled.drawRect(0, 0, 100, 44, SSD1306_WHITE);
+  oled.drawRect(0, 0, 100, 44, WHITE);
   
   // Draw grid lines - vertical (5 sections)
   for (int i = 0; i < 100; i += 20) {  
@@ -878,7 +894,9 @@ void drawBackground()
   oled.setCursor(0, 56);
   oled.print("MPP: ");
   oled.print(maxPower/1000, 2);  // Actual measured MPP
-  oled.println("mW");
+  oled.print("mW FF:");
+  oled.print((int)((maxPower / ((vocValues[0]/1000.0) * icalValues[15])) / 10));
+  oled.println("%");
   
   oled.setCursor(0, 47);
   oled.print("V:");
@@ -956,51 +974,66 @@ void showCreditsScreen() {
 }
 
 void setupNetwork() {
-  // Connect to WiFi
+  const int MAX_ATTEMPTS_PER_NETWORK = 3;    // Only try 3 times per network
+  const int WIFI_DELAY = 3333;        // ~3.3 seconds between attempts
+  bool wifiConnected = false;
+  
   Serial.println();
-  Serial.print("Connecting to ");
-  Serial.println(WIFI_SSID);
+  Serial.println("Starting WiFi connection attempts");
   
-  WiFi.mode(WIFI_STA);
-  
-  // Handle both open and password-protected networks
-  if (strlen(WIFI_PASSWORD) > 0) {
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-  } else {
-    WiFi.begin(WIFI_SSID);  // For open networks
-  }
-  
-  oled.clearDisplay();
-  oled.setTextSize(1);
-  oled.setCursor(0,0);
-  oled.print("Connecting");
-  oled.display();
-  
-  // Wait for connection
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-    oled.print(".");
+  // Try each network in sequence
+  for (int network = 0; network < WIFI_NETWORK_COUNT && !wifiConnected; network++) {
+    int attempts = 0;
+    
+    Serial.printf("\nTrying network: %s\n", WIFI_NETWORKS[network].ssid);
+    
+    oled.clearDisplay();
+    oled.setTextSize(1);
+    oled.setCursor(0,0);
+    oled.printf("Trying WiFi:\n%s", WIFI_NETWORKS[network].ssid);
     oled.display();
+    
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_NETWORKS[network].ssid, WIFI_NETWORKS[network].password);
+    
+    // Try to connect to this network
+    while (WiFi.status() != WL_CONNECTED && attempts < MAX_ATTEMPTS_PER_NETWORK) {
+      delay(WIFI_DELAY);
+      Serial.print(".");
+      oled.print(".");
+      oled.display();
+      attempts++;
+    }
+    
+    if (WiFi.status() == WL_CONNECTED) {
+      wifiConnected = true;
+      Serial.printf("\nConnected to %s\n", WIFI_NETWORKS[network].ssid);
+      Serial.print("IP address: ");
+      Serial.println(WiFi.localIP());
+      
+      // Initialize mDNS if connected
+      if (MDNS.begin("ivcurve")) {
+        Serial.println("mDNS responder started");
+        Serial.println("You can access the server at: http://ivcurve.local");
+      }
+      
+      oled.clearDisplay();
+      oled.setCursor(0,0);
+      oled.println("Connected!");
+      oled.println(WiFi.localIP());
+      oled.println("ivcurve.local");
+      oled.display();
+      delay(2000);
+    }
   }
   
-  Serial.println("");
-  Serial.print("Connected to ");
-  Serial.println(WIFI_SSID);
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
-
-  // Initialize mDNS
-  if (MDNS.begin("ivcurve")) {
-    Serial.println("mDNS responder started");
-    Serial.println("You can access the server at: http://ivcurve.local");
+  if (!wifiConnected) {
+    Serial.println("\nFailed to connect to any network - continuing without WiFi");
+    oled.clearDisplay();
+    oled.setCursor(0,0);
+    oled.println("No WiFi");
+    oled.println("Running offline");
+    oled.display();
+    delay(2000);
   }
-  
-  oled.clearDisplay();
-  oled.setCursor(0,0);
-  oled.println("Connected!");
-  oled.println(WiFi.localIP());
-  oled.println("ivcurve.local");
-  oled.display();
-  delay(2000);
 }

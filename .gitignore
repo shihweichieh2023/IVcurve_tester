@@ -7,7 +7,6 @@
 .vscode/extensions.json
 
 # Configuration files
-src/config.h
 
 # KiCad
 # Temporary files
@@ -39,3 +38,4 @@ fp-info-cache
 # Backups
 *-backups/
 backup/
+src/config.h

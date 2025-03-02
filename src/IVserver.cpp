@@ -89,20 +89,32 @@ void handleRoot() {
 
         .measurement-row {
             display: flex;
-            justify-content: space-around;
-            margin-bottom: 15px;
-            gap: 15px;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+            width: 100%;  /* Ensure full width */
         }
 
         .measurement-card {
+            flex: 1 1 0;  /* grow, shrink, and base width of 0 to ensure equal widths */
             background: var(--darker-bg);
             padding: 12px;
             border-radius: 6px;
-            flex: 1;
+            margin: 0 0.5rem;
+            min-width: 0;  /* Allow cards to shrink below content size */
+            max-width: calc(100% / 3);  /* Force exactly one-third width */
             text-align: center;
             border: 1px solid var(--neon-blue);
             box-shadow: var(--blue-glow);
             transition: all 0.3s ease;
+            word-wrap: break-word;  /* Handle long text better */
+        }
+
+        .measurement-card:first-child {
+            margin-left: 0;
+        }
+
+        .measurement-card:last-child {
+            margin-right: 0;
         }
 
         .measurement-card div:first-child {
@@ -164,6 +176,10 @@ void handleRoot() {
                             <div class="measurement-card">
                                 <div>Open circuit voltage (Voc)</div>
                                 <div class="measurement-value">${(data.Voc/1000).toFixed(2)} V</div>
+                            </div>
+                            <div class="measurement-card">
+                                <div>Fill Factor</div>
+                                <div class="measurement-value">${Math.round((data.maxPower / (data.Voc/1000 * data.Isc)) / 10)}%</div>
                             </div>
                         </div>
                     `;
