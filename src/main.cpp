@@ -440,36 +440,56 @@ void drawOnEink() {
   // Draw grid lines - vertical (8 sections of 20 pixels each)
   for (int i = 0; i < 160; i += 20) {  
     for (int j = 10; j < 110; j += 2) {   
-      if (i > 0) eink.drawPixel(i + 20, j, EPD_BLACK);  // Dotted line pattern
+      if (i > 0) eink.drawPixel(i + 20, j, EPD_BLACK);  
     }
   }
   
   // Draw grid lines - horizontal (10 sections)
   for (int i = 0; i < 100; i += 20) {    
     for (int j = 20; j < 180; j += 2) {  
-      if (i > 0) eink.drawPixel(j, i + 10, EPD_BLACK);  // Dotted line pattern
+      if (i > 0) eink.drawPixel(j, i + 10, EPD_BLACK);  
     }
   }
-  
-  // Draw axes labels with proper rotation
+
+  // Draw X-axis label with proper rotation
   eink.setTextSize(1);
   eink.setTextColor(EPD_RED);
-  
-  // X-axis label
   eink.setCursor(70, 116);
   eink.print("Voltage (V)");
   
   // Draw Y-axis label with proper rotation
   uint8_t oldRotation = eink.getRotation();
-  eink.setRotation(3);  // Rotate 270 degrees
-  eink.setCursor(30, 6);  // Adjusted for rotation
+  eink.setRotation(3);  
+  eink.setCursor(30, 6);  
   eink.print("Current (mA)");
-  eink.setRotation(oldRotation);  // Restore original rotation
+  eink.setRotation(oldRotation);  
   
   // Calculate scaling factors ONCE using max values from both measurements
-  float scaleX_auto = 160.0 / (max(maxVoltage, hasPreviousMeasurement ? prevMaxVoltage : 0) * 1.1);  // Add 10% margin
-  float scaleY_auto = 100.0 / (max(maxCurrent, hasPreviousMeasurement ? prevMaxCurrent : 0) * 1.1);   // Add 10% margin
-  float scaleY_power = 47.5 / (max(maxPower, hasPreviousMeasurement ? prevMaxPower : 0) * 1.1);    // 50% of the height (95/2)
+  float scaleX_auto = 160.0 / (max(maxVoltage, hasPreviousMeasurement ? prevMaxVoltage : 0) * 1.1);  
+  float scaleY_auto = 100.0 / (max(maxCurrent, hasPreviousMeasurement ? prevMaxCurrent : 0) * 1.1);   
+  float scaleY_power = 47.5 / (max(maxPower, hasPreviousMeasurement ? prevMaxPower : 0) * 1.1);    
+  
+  // Calculate maximum values for axis labels
+  float maxVoltage = 160.0 / scaleX_auto;  // 160 pixels is full scale X
+  float maxCurrent = 100.0 / scaleY_auto;  // 100 pixels is full scale Y
+  
+  // Format the values with 2 decimal places
+  char voltageStr[10];
+  char currentStr[10];
+  snprintf(voltageStr, sizeof(voltageStr), "%.1fV", maxVoltage/1000);  // Format voltage with unit
+  snprintf(currentStr, sizeof(currentStr), "%.1fmA", maxCurrent);  // Convert to mA and format with 2 decimals
+  
+  // Draw axis max values
+  eink.setTextSize(1);
+  eink.setTextColor(EPD_BLACK);
+  
+  // Voltage max value (X-axis) - at the end of X axis
+  eink.setCursor(170, 116);  // Position just right of the graph, aligned with axis
+  eink.print(voltageStr);
+  
+  // Current max value (Y-axis) - at the top of Y axis
+  eink.setCursor(8, 2);  // Position just left of the graph, aligned with top
+  eink.print(currentStr);
   
   // Only plot previous measurement if we have one
   if (hasPreviousMeasurement) {
@@ -509,11 +529,20 @@ void drawOnEink() {
     // Add dots at each measurement point
     eink.fillCircle(x, y, 2, EPD_RED);
   }
+
+  // Add MPP dot on the I-V curve (current measurement)
+  if (maxPower > 0 && mppIndex >= 0 && mppIndex < 16) {
+    int mpx = 20 + (int)(vocValues[mppIndex] * scaleX_auto);
+    int mpy = 110 - (int)(icalValues[mppIndex] * scaleY_auto);
+    mpx = constrain(mpx, 20, 180);
+    mpy = constrain(mpy, 10, 110);
+    eink.fillCircle(mpx, mpy, 4, EPD_RED);  
+  }
   
   // Draw previous power curve in black
   if (hasPreviousMeasurement) {
     // Draw from high V to low V (index 0 to 15)
-    for(int i = 15; i >= 0; i--) {
+    for(int i = 15; i > 0; i--) {  
       float prev_power1 = prevVocValues[i] * prevIcalValues[i];
       float prev_power2 = prevVocValues[i-1] * prevIcalValues[i-1];
       
@@ -527,11 +556,8 @@ void drawOnEink() {
       x2 = constrain(x2, 20, 180);
       y2 = constrain(y2, 10, 110);
       
-      if (i > 0) {  // Only draw line if we have a next point
-        drawDashedLine(x1, y1, x2, y2, EPD_BLACK, 2, 2);  // Shorter dashes for power curve
-      }
+      drawDashedLine(x1, y1, x2, y2, EPD_BLACK, 2, 2);  
     }
-    
     
     // Connect lowest V point (index 15) to origin for previous curve
     float prev_last_power = prevVocValues[15] * prevIcalValues[15];
@@ -539,13 +565,12 @@ void drawOnEink() {
     int y1 = 110 - (int)(prev_last_power * scaleY_power);
     x1 = constrain(x1, 20, 180);
     y1 = constrain(y1, 10, 110);
-    drawDashedLine(x1, y1, 20, 110, EPD_BLACK, 2, 2);  // Draw to origin (20,110)
-    
+    drawDashedLine(x1, y1, 20, 110, EPD_BLACK, 2, 2);  
   }
 
   // Draw power curve (current measurement in black)
   // Draw from high V to low V (index 0 to 15)
-  for(int i = 15; i >= 0; i--) {
+  for(int i = 15; i > 0; i--) {  
     float power1 = vocValues[i] * icalValues[i];
     float power2 = vocValues[i-1] * icalValues[i-1];
     
@@ -559,9 +584,7 @@ void drawOnEink() {
     x2 = constrain(x2, 20, 180);
     y2 = constrain(y2, 10, 110);
     
-    if (i > 0) {  // Only draw line if we have a next point
-      eink.drawLine(x1, y1, x2, y2, EPD_BLACK);  // Solid line for current power curve
-    }
+    eink.drawLine(x1, y1, x2, y2, EPD_BLACK);  
   }
 
   // Connect lowest V point (index 15) to origin for current curve
@@ -570,7 +593,7 @@ void drawOnEink() {
   int y1 = 110 - (int)(last_power * scaleY_power);
   x1 = constrain(x1, 20, 180);
   y1 = constrain(y1, 10, 110);
-  eink.drawLine(x1, y1, 20, 110, EPD_BLACK);  // Solid line to origin
+  eink.drawLine(x1, y1, 20, 110, EPD_BLACK);  
 
   // Add MPP dot for current power curve
   if (maxPower > 0 && mppIndex >= 0 && mppIndex < 16) {
@@ -580,15 +603,28 @@ void drawOnEink() {
     mpx = constrain(mpx, 20, 180);
     mpy = constrain(mpy, 10, 110);
     eink.fillCircle(mpx, mpy, 2, EPD_BLACK);
+    
   }
   
   // Add measurements text
   eink.setTextColor(EPD_RED);
   eink.setCursor(184, 40);
   eink.print("MPP:");
-  //eink.setCursor(184, 52);
-  eink.setTextSize(2);
-  eink.print(maxPower/1000, 2);  // Try multiplying by 1000
+  eink.setTextSize(3);
+  
+  // Format MPP value based on its range
+  float mppValue = maxPower/1000;  // Convert to mW
+  if (mppValue < 10) {
+    // Small values: show 0.00 format
+    eink.print(mppValue, 2);
+  } else if (mppValue < 100) {
+    // Medium values: show 00.0 format
+    eink.print(mppValue, 1);
+  } else {
+    // Large values: show 000 format
+    eink.print((int)mppValue);
+  }
+  
   eink.setTextSize(1);
   eink.setCursor(280, 40);
   eink.print("mW");
@@ -646,31 +682,29 @@ void drawOnEinkBackground() {
   // Draw grid lines - vertical (8 sections of 20 pixels each)
   for (int i = 0; i < 160; i += 20) {  
     for (int j = 10; j < 110; j += 2) {   
-      if (i > 0) eink.drawPixel(i + 20, j, EPD_BLACK);  // Dotted line pattern
+      if (i > 0) eink.drawPixel(i + 20, j, EPD_BLACK);  
     }
   }
   
   // Draw grid lines - horizontal (10 sections)
   for (int i = 0; i < 100; i += 20) {    
     for (int j = 20; j < 180; j += 2) {  
-      if (i > 0) eink.drawPixel(j, i + 10, EPD_BLACK);  // Dotted line pattern
+      if (i > 0) eink.drawPixel(j, i + 10, EPD_BLACK);  
     }
   }
-  
-  // Draw axes labels with proper rotation
+
+  // Draw X-axis label with proper rotation
   eink.setTextSize(1);
   eink.setTextColor(EPD_RED);
-  
-  // X-axis label
   eink.setCursor(70, 116);
   eink.print("Voltage (V)");
   
   // Draw Y-axis label with proper rotation
   uint8_t oldRotation = eink.getRotation();
-  eink.setRotation(3);  // Rotate 270 degrees
-  eink.setCursor(30, 6);  // Adjusted for rotation
+  eink.setRotation(3);  
+  eink.setCursor(30, 6);  
   eink.print("Current (mA)");
-  eink.setRotation(oldRotation);  // Restore original rotation
+  eink.setRotation(oldRotation);  
   
   // Add title in red
   eink.setTextSize(2);
@@ -683,7 +717,7 @@ void drawOnEinkBackground() {
   eink.setTextColor(EPD_BLACK);
   eink.setCursor(190, 25);
   eink.print("button to update");
-  
+
   // Draw hackteria logo in bottom right corner
   eink.drawBitmap(296 - HACKTERIA_LOGO_WIDTH + 40 - 2,    // X position (2 pixels from right edge)
                   128 - HACKTERIA_LOGO_HEIGHT - 2,     // Y position (2 pixels from bottom edge)
@@ -708,23 +742,38 @@ void drawDashedLine(int x0, int y0, int x1, int y1, uint16_t color, int dashLeng
   
   // Total length of the line
   float lineLength = sqrt(dx * dx + dy * dy);
+  if (lineLength < 1) {  // If line is too short, just draw a single pixel
+    eink.drawPixel(x0, y0, color);
+    return;
+  }
   
   // Number of segments (dash + gap)
-  int segments = lineLength / (dashLength + gapLength);
-  if (segments == 0) segments = 1;  // At least one segment
-  
-  // Length of each segment normalized to line coordinates
-  float segmentLength = lineLength / segments;
+  int totalSegmentLength = dashLength + gapLength;
+  int segments = max(1, (int)(lineLength / totalSegmentLength));
   
   // Draw each dash
   for (int i = 0; i < segments; i++) {
-    float startPercent = i * segmentLength / lineLength;
-    float endPercent = min((i * segmentLength + dashLength) / lineLength, 1.0f);
+    float startPercent = (float)(i * totalSegmentLength) / lineLength;
+    float endPercent = min((float)(i * totalSegmentLength + dashLength) / lineLength, 1.0f);
     
-    int xStart = x0 + (x1 - x0) * startPercent;
-    int yStart = y0 + (y1 - y0) * startPercent;
-    int xEnd = x0 + (x1 - x0) * endPercent;
-    int yEnd = y0 + (y1 - y0) * endPercent;
+    if (startPercent >= 1.0f) break;  // Stop if we've gone past the end
+    
+    int xStart = x0 + (int)((x1 - x0) * startPercent);
+    int yStart = y0 + (int)((y1 - y0) * startPercent);
+    int xEnd = x0 + (int)((x1 - x0) * endPercent);
+    int yEnd = y0 + (int)((y1 - y0) * endPercent);
+    
+    // Ensure we don't draw outside the line endpoints
+    if (sx > 0) {
+      xEnd = min(xEnd, x1);
+    } else {
+      xEnd = max(xEnd, x1);
+    }
+    if (sy > 0) {
+      yEnd = min(yEnd, y1);
+    } else {
+      yEnd = max(yEnd, y1);
+    }
     
     eink.drawLine(xStart, yStart, xEnd, yEnd, color);
   }
@@ -804,7 +853,19 @@ void drawBackground()
   oled.setCursor(104, 12);
   oled.println("Isc:");
   oled.setCursor(104, 20);
-  oled.print(icalValues[15], 1);  // Index 15 for short circuit current
+  
+  // Format Isc value based on its range
+  float iscValue = icalValues[15];  // Index 15 for short circuit current
+  if (iscValue < 10) {
+    // Small values: show 0.00 format
+    oled.print(iscValue, 2);
+  } else if (iscValue < 100) {
+    // Medium values: show 00.0 format
+    oled.print(iscValue, 1);
+  } else {
+    // Large values: show 000 format
+    oled.print((int)iscValue);
+  }
   
   // Display open circuit voltage (Voc)
   oled.setCursor(104, 30);
@@ -821,7 +882,7 @@ void drawBackground()
   
   oled.setCursor(0, 47);
   oled.print("V:");
-  oled.print(vocValues[mppIndex], 2);  // Voltage at MPP
+  oled.print(vocValues[mppIndex]/1000, 2);  // Voltage at MPP
   oled.print("V  I:");
   oled.print(icalValues[mppIndex], 2);  // Current at MPP
   oled.print("mA");
