@@ -26,6 +26,7 @@
     #define PIN_POT_X       18  // ADC input for X-axis scaling
     #define PIN_BUTTON      35  // Digital input for mode button
     #define PIN_TPI         10  // Test Point Input control
+    #define PIN_RGBLED      47  // RGB LED control pin
 
     // I2C Pin Definitions
     #define SDA_PIN 8   // Default I2C SDA for S3-Mini

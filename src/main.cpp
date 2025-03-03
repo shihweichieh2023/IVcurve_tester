@@ -31,6 +31,9 @@ Hardware Setup:
 #include "board_config.h"
 #include "IVserver.h"
 #include <Adafruit_ADS1X15.h>
+#include "ThingSpeak.h"
+#include <ArduinoJson.h>
+#include <Adafruit_NeoPixel.h>
 
 // Display Configuration
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
@@ -44,6 +47,19 @@ Adafruit_ADS1115 ads;  // Create an ADS1115 instance
 
 // Global IV Server instance
 //IVserver server(80);  // Create an IV server on port 80
+
+// ThingSpeak client
+WiFiClient client;
+
+// Define LED states
+#define LED_IDLE      0  // Blue
+#define LED_MEASURING 1  // Yellow
+#define LED_SENDING   2  // Purple
+#define LED_SUCCESS   3  // Green
+#define LED_ERROR     4  // Red
+
+// Initialize NeoPixel
+Adafruit_NeoPixel pixel(1, PIN_RGBLED, NEO_RGB + NEO_KHZ800);
 
 // Function declarations
 void initOLED();
@@ -61,6 +77,10 @@ void setupIVserver();
 int readMux(int channel);
 void printMeasurements();
 void drawDashedLine(int x0, int y0, int x1, int y1, uint16_t color, int dashLength, int gapLength);
+void setupThingSpeak();
+void sendToThingSpeak(float voc, float isc, float mpp, float ff);
+void setupLED();
+void setLEDState(uint8_t state);
 
 // Pin assignments from board configuration
 int s0 = PIN_MUX_S0;      // MUX control pin S0
@@ -85,10 +105,10 @@ const int resistorCorrection = 25;  // For old Mux
 int overlay = 0; // Display overlay state
 int scaleY;      // Y-axis (current) scaling factor from potentiometer
 int scaleX;      // X-axis (voltage) scaling factor from potentiometer
-const int average = 3;           // Number of readings to average
-const int delayLoop = 10;        // Main loop delay
-const int delayAveraging = 5;    // Delay between ADC readings for averaging
-const int delayMuxSwitch = 2;    // Delay after MUX switching for voltage stabilization
+const int average = 5;           // Number of readings to average
+const int delayLoop = 100;        // Main loop delay
+const int delayAveraging = 10;    // Delay between ADC readings for averaging
+const int delayMuxSwitch = 5;    // Delay after MUX switching for voltage stabilization
 
 // Interface Control Variables
 bool serialMode = 0;          // Serial output mode flag
@@ -131,7 +151,7 @@ int resistorValues[20]{
   141,
   113,
   93,
-  81,
+  70,
   81,
   81,
   81,
@@ -173,6 +193,10 @@ void setup() {
   ads.setGain(GAIN_TWO);    // 2x gain   +/- 2.048V  1 bit = 0.0625mV
   #endif
 
+  // Initialize NeoPixel
+  setupLED();
+  setLEDState(LED_IDLE);
+
   // Show logo
   showLogo_hackteria();
   delay(1000);
@@ -184,6 +208,7 @@ void setup() {
   setupNetwork();
   if (WiFi.status() == WL_CONNECTED) {
     setupIVserver();
+    setupThingSpeak();
   }
   
   Serial.println("");
@@ -309,6 +334,7 @@ void loop() {
 
   // Handle button press
   if (buttonPressed) {
+    setLEDState(LED_MEASURING);
     Serial.println("Button pressed!");
     
     // First draw the e-ink display with current measurement in red and previous in black
@@ -327,6 +353,25 @@ void loop() {
     prevMppIndex = mppIndex;
     hasPreviousMeasurement = true;
 
+    // Send data to ThingSpeak if WiFi is connected
+    if (WiFi.status() == WL_CONNECTED) {
+      setLEDState(LED_SENDING);
+      // Calculate values to send
+      float voc = vocValues[0];          // Open circuit voltage in mV
+      float isc = icalValues[15];        // Short circuit current in mA
+      float mpp = maxPower;              // Maximum power in mW
+      float ff = (maxPower / ((vocValues[0]/1000.0) * icalValues[15])) / 10;  // Fill factor (already calculated)
+      
+      // Send to ThingSpeak (values already in correct units)
+      sendToThingSpeak(voc, isc, mpp, ff);
+      setLEDState(LED_SUCCESS);
+      delay(1000);  // Show success for 1 second
+    } else {
+      setLEDState(LED_ERROR);
+      delay(1000);  // Show error for 1 second
+    }
+    
+    setLEDState(LED_IDLE);
     buttonPressed = false;  // Reset flag
     delay(200);  // Debounce delay
   }
@@ -353,8 +398,6 @@ int readMux(int channel) {
       buttonPressed = true;
     }
 
-
-    
 
     #ifdef hasADS1115
     adc0 = ads.readADC_SingleEnded(0);
@@ -1036,4 +1079,86 @@ void setupNetwork() {
     oled.display();
     delay(2000);
   }
+}
+
+void setupThingSpeak() {
+  ThingSpeak.begin(client);
+}
+
+// Function to create array string (comma separated values)
+String createArrayString(float values[], int count, int decimals = 3) {
+  String result = "";
+  for(int i = 0; i < count; i++) {
+    if (i > 0) result += ",";
+    if (decimals == 0) {
+      result += String((int)round(values[i]));  // Cast to int to remove decimal point
+    } else {
+      result += String(values[i], decimals);
+    }
+  }
+  return result;
+}
+
+void sendToThingSpeak(float voc, float isc, float mpp, float ff) {
+  // Set the main measurement fields
+  ThingSpeak.setField(1, voc);    // Open Circuit Voltage
+  ThingSpeak.setField(2, isc);    // Short Circuit Current
+  ThingSpeak.setField(3, mpp);    // Maximum Power Point
+  ThingSpeak.setField(4, ff);     // Fill Factor
+  
+  // Create voltage array string (field 5)
+  String voltageStr = createArrayString(vocValues, 16, 0);  // No decimals for voltage
+  if (voltageStr.length() <= 255) {
+    ThingSpeak.setField(5, voltageStr);
+  } else {
+    Serial.println("Voltage array too long!");
+  }
+  
+  // Create current array string (field 6)
+  String currentStr = createArrayString(icalValues, 16, 2);  // 2 decimals for current
+  if (currentStr.length() <= 255) {
+    ThingSpeak.setField(6, currentStr);
+  } else {
+    Serial.println("Current array too long!");
+  }
+  
+  // Write to ThingSpeak
+  int status = ThingSpeak.writeFields(THINGSPEAK_CHANNEL_ID, THINGSPEAK_API_KEY);
+  
+  if (status == 200) {
+    Serial.println("ThingSpeak update successful");
+    Serial.println("Voltage array sent:");
+    Serial.println(voltageStr);
+    Serial.println("Current array sent:");
+    Serial.println(currentStr);
+  } else {
+    Serial.printf("ThingSpeak update failed, status: %d\n", status);
+  }
+}
+
+void setupLED() {
+  pixel.begin();
+  pixel.setBrightness(25);  // Set to 50% brightness
+  pixel.show();
+}
+
+void setLEDState(uint8_t state) {
+  switch(state) {
+    case LED_SENDING:
+      pixel.setPixelColor(0, pixel.Color(0, 0, 255));  // Blue
+      break;
+    case LED_MEASURING:
+      pixel.setPixelColor(0, pixel.Color(148, 128, 0));  // Yellow
+      break;
+    case LED_IDLE:
+      pixel.setPixelColor(0, pixel.Color(128, 0, 128));  // Purple
+      break;
+    case LED_SUCCESS:
+      pixel.setPixelColor(0, pixel.Color(0, 255, 0));  // Green
+      break;
+    case LED_ERROR:
+      pixel.setPixelColor(0, pixel.Color(255, 0, 0));  // Red
+      break;
+  }
+  pixel.show();
 }
