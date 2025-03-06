@@ -105,10 +105,11 @@ const int resistorCorrection = 25;  // For old Mux
 int overlay = 0; // Display overlay state
 int scaleY;      // Y-axis (current) scaling factor from potentiometer
 int scaleX;      // X-axis (voltage) scaling factor from potentiometer
-const int average = 5;           // Number of readings to average
-const int delayLoop = 100;        // Main loop delay
-const int delayAveraging = 10;    // Delay between ADC readings for averaging
-const int delayMuxSwitch = 5;    // Delay after MUX switching for voltage stabilization
+const int average = 1;           // Number of readings to average
+const int delayLoop = 10;        // Main loop delay
+const int delayAveraging = 4;    // Delay between ADC readings for averaging
+const int delayMuxSwitch = 2;    // Delay after MUX switching for voltage stabilization
+const int delayWebUpdate = 2000;  // Web server update delay in milliseconds
 
 // Interface Control Variables
 bool serialMode = 0;          // Serial output mode flag
@@ -151,7 +152,7 @@ int resistorValues[20]{
   141,
   113,
   93,
-  70,
+  81,
   81,
   81,
   81,
@@ -190,7 +191,7 @@ void setup() {
   // Initialize ADS1115
   #ifdef hasADS1115
   ads.begin(0x48);
-  ads.setGain(GAIN_TWO);    // 2x gain   +/- 2.048V  1 bit = 0.0625mV
+  ads.setGain(GAIN_ONE);    // 1x gain   +/- 4.096V  1 bit = 0.125mV
   #endif
 
   // Initialize NeoPixel
@@ -313,20 +314,24 @@ void loop() {
 #endif
 
   // Update IV server with new measurement data
-  IVData data;
-  data.maxPower = maxPower;
-  data.maxCurrent = icalValues[mppIndex];  // Use current at MPP
-  data.maxVoltage = vocValues[mppIndex];   // Use voltage at MPP
-  data.numPoints = 16;
-  
-  // Copy array values
-  for(int i = 0; i < 16; i++) {
-    data.vocValues[i] = vocValues[i];
-    data.icalValues[i] = icalValues[i];
-    data.powValues[i] = powValues[i];
-  }
-  if (WiFi.status() == WL_CONNECTED) {
-    updateIVserverData(data);
+  static unsigned long lastWebUpdate = 0;
+  if (millis() - lastWebUpdate >= delayWebUpdate) {
+    IVData data;
+    data.maxPower = maxPower;
+    data.maxCurrent = icalValues[mppIndex];  // Use current at MPP
+    data.maxVoltage = vocValues[mppIndex];   // Use voltage at MPP
+    data.numPoints = 16;
+    
+    // Copy array values
+    for(int i = 0; i < 16; i++) {
+      data.vocValues[i] = vocValues[i];
+      data.icalValues[i] = icalValues[i];
+      data.powValues[i] = powValues[i];
+    }
+    if (WiFi.status() == WL_CONNECTED) {
+      updateIVserverData(data);
+    }
+    lastWebUpdate = millis();
   }
   
   // Update OLED display continuously
@@ -381,7 +386,7 @@ void loop() {
 
 int readMux(int channel) {
   int sig = 0;
-  float multiplier = 0.0625F; // 2.048V range = 0.0625mV per bit
+  float multiplier = 0.125F; // 4.096V range = 0.125mV per bit
   int16_t adc0;
   
   // Set the channel on MUX

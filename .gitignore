@@ -39,3 +39,6 @@ fp-info-cache
 *-backups/
 backup/
 src/config.h
+
+# Octave workspace file
+matlab/octave-workspace
