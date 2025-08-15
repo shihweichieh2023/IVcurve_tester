@@ -6,6 +6,24 @@ WebServer ivServer(80);
 // Global variable to store current measurement data
 IVData currentData;
 
+// 小工具 (Utility functions)
+static String arrayToCsv(const float* a, int n, int decimals) {
+  String s;
+  for (int i = 0; i < n; i++) { if (i) s += ","; s += String(a[i], decimals); }
+  return s;
+}
+
+static String pairsCsv() {
+  String s;
+  for (int i = 0; i < currentData.numPoints; i++) {
+    if (i) s += ", ";
+    s += String(currentData.vocValues[i], 0);   // mV
+    s += " ";
+    s += String(currentData.icalValues[i], 3);  // mA
+  }
+  return s;
+}
+
 // Handler function declarations
 void handleRoot();
 void handleData();
@@ -14,6 +32,23 @@ void handleData();
 void setupIVserver() {
     ivServer.on("/", handleRoot);      // Handle root URL
     ivServer.on("/data", handleData);  // Handle data endpoint
+    
+    // 新的純文字端點（不影響 / 與 /data）
+    ivServer.on("/voltage.txt", []() {
+      ivServer.send(200, "text/plain",
+                    arrayToCsv(currentData.vocValues, currentData.numPoints, 0));
+    });
+    ivServer.on("/current.txt", []() {
+      ivServer.send(200, "text/plain",
+                    arrayToCsv(currentData.icalValues, currentData.numPoints, 3));
+    });
+    ivServer.on("/power.txt", []() {
+      ivServer.send(200, "text/plain",
+                    arrayToCsv(currentData.powValues, currentData.numPoints, 3));
+    });
+    ivServer.on("/iv.csv", []() {               // 交錯 V,I,V,I,...
+      ivServer.send(200, "text/plain", pairsCsv());
+    });
     
     ivServer.begin();
     Serial.println("IV Curve HTTP server started");

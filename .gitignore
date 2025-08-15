@@ -42,3 +42,4 @@ src/config.h
 
 # Octave workspace file
 matlab/octave-workspace
+.DS_Store
