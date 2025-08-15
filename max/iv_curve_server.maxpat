@@ -40,6 +40,55 @@
 		"assistshowspatchername" : 0,
 		"boxes" : [ 			{
 				"box" : 				{
+					"id" : "obj-22",
+					"maxclass" : "multislider",
+					"numinlets" : 1,
+					"numoutlets" : 2,
+					"outlettype" : [ "", "" ],
+					"parameter_enable" : 0,
+					"patching_rect" : [ 255.0, 940.0, 297.0, 108.0 ],
+					"size" : 7
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-19",
+					"maxclass" : "button",
+					"numinlets" : 1,
+					"numoutlets" : 1,
+					"outlettype" : [ "bang" ],
+					"parameter_enable" : 0,
+					"patching_rect" : [ 400.0, 863.0, 24.0, 24.0 ]
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-10",
+					"maxclass" : "newobj",
+					"numinlets" : 1,
+					"numoutlets" : 2,
+					"outlettype" : [ "", "" ],
+					"patching_rect" : [ 285.0, 894.0, 69.0, 22.0 ],
+					"text" : "ml.principle"
+				}
+
+			}
+, 			{
+				"box" : 				{
+					"id" : "obj-9",
+					"maxclass" : "newobj",
+					"numinlets" : 1,
+					"numoutlets" : 1,
+					"outlettype" : [ "" ],
+					"patching_rect" : [ 285.0, 855.0, 53.0, 22.0 ],
+					"text" : "ml.scale"
+				}
+
+			}
+, 			{
+				"box" : 				{
 					"id" : "obj-52",
 					"maxclass" : "comment",
 					"numinlets" : 1,
@@ -114,7 +163,8 @@
 					"numoutlets" : 2,
 					"outlettype" : [ "", "" ],
 					"parameter_enable" : 0,
-					"patching_rect" : [ 590.0, 905.333340167999268, 344.0, 129.0 ],
+					"patching_rect" : [ 595.0, 923.0, 322.0, 125.0 ],
+					"setminmax" : [ 0.0, 1.0 ],
 					"size" : 128
 				}
 
@@ -126,8 +176,8 @@
 					"maxclass" : "comment",
 					"numinlets" : 1,
 					"numoutlets" : 0,
-					"patching_rect" : [ 642.0, 711.333340167999268, 415.0, 60.0 ],
-					"text" : "// 0) F_ohmic   = [FF, Vmpp/Voc, Impp/Isc, Rs, Rsh, curvature_sum, area]\n// 1) basics    = [Voc, Isc, Vmpp, Impp]\n// 2) normCurve = [Vn0, In0, Vn1, In1, ...]  (64-point resampled)\n// 3) F_dimless = [FF, Vmpp/Voc, Impp/Isc, r_s, r_sh, curvature_sum, area]"
+					"patching_rect" : [ 624.0, 711.333340167999268, 488.0, 74.0 ],
+					"text" : "1. F_ohmic = [FF, Vmpp/Voc, Impp/Isc, Rs, Rsh, curvature_sum, area]\n2. F_dimless = [FF, Vmpp/Voc, Impp/Isc, Rs_dimless, Rsh_dimless, curvature_sum, area]\n3. basics = [Voc, Isc, Vmpp, Impp]\n4. norm_64_curve = [Vn0, In0, Vn1, In1, ...]  (64-point resampled)\n"
 				}
 
 			}
@@ -146,13 +196,12 @@
 , 			{
 				"box" : 				{
 					"id" : "obj-8",
-					"linecount" : 2,
 					"maxclass" : "message",
 					"numinlets" : 2,
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
-					"patching_rect" : [ 586.0, 1043.333340167999268, 321.0, 35.0 ],
-					"text" : "0.244477 0.548673 0.445578 1.028607 0.776463 0.162506 0.498635"
+					"patching_rect" : [ 595.0, 1054.666698098182678, 327.0, 22.0 ],
+					"text" : "703 0.003 703 0.001"
 				}
 
 			}
@@ -163,21 +212,20 @@
 					"numinlets" : 2,
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
-					"patching_rect" : [ 590.0, 863.333340167999268, 153.0, 22.0 ],
-					"text" : "1017 0.294 558 0.131"
+					"patching_rect" : [ 590.0, 850.0, 327.0, 22.0 ],
+					"text" : "0.333333 1 0.333333 -0. -0.020378 1.011498 0.685281"
 				}
 
 			}
 , 			{
 				"box" : 				{
 					"id" : "obj-14",
-					"linecount" : 2,
 					"maxclass" : "message",
 					"numinlets" : 2,
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
-					"patching_rect" : [ 590.0, 815.333340167999268, 327.0, 35.0 ],
-					"text" : "0.913735 0.913735 1 -0.47122 0.079219 0.579937 0.428628"
+					"patching_rect" : [ 590.0, 815.333340167999268, 327.0, 22.0 ],
+					"text" : "0.333333 1 0.333333 0 4775.21 1.011498 0.685281"
 				}
 
 			}
@@ -317,7 +365,7 @@
 					"numoutlets" : 1,
 					"outlettype" : [ "" ],
 					"patching_rect" : [ 589.0, 301.333340167999268, 384.000011444091797, 35.0 ],
-					"text" : "1.04, 37.44, 60.916, 70.985, 66.667, 48.101, 40.087, 28.876, 21.644, 15.431, 10.811, 7.218, 5.727, 3.449, 2.207, 1.471"
+					"text" : "703 0.001, 56 0.003, 23 0.003, 12 0.003, 6 0.003, 3 0.003, 2 0.003, 1 0.002, 1 0.003, 0 0., 0 0., 0 0., 0 0., 0 0., 0 0., 0 0."
 				}
 
 			}
@@ -743,7 +791,14 @@
 			}
 , 			{
 				"patchline" : 				{
-					"destination" : [ "obj-12", 0 ],
+					"destination" : [ "obj-22", 0 ],
+					"source" : [ "obj-10", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-12", 1 ],
 					"source" : [ "obj-15", 1 ]
 				}
 
@@ -751,6 +806,7 @@
 , 			{
 				"patchline" : 				{
 					"destination" : [ "obj-14", 1 ],
+					"order" : 0,
 					"source" : [ "obj-15", 0 ]
 				}
 
@@ -758,14 +814,29 @@
 , 			{
 				"patchline" : 				{
 					"destination" : [ "obj-20", 0 ],
+					"source" : [ "obj-15", 3 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-8", 1 ],
 					"source" : [ "obj-15", 2 ]
 				}
 
 			}
 , 			{
 				"patchline" : 				{
-					"destination" : [ "obj-8", 0 ],
-					"source" : [ "obj-15", 3 ]
+					"destination" : [ "obj-9", 0 ],
+					"order" : 1,
+					"source" : [ "obj-15", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
+					"destination" : [ "obj-10", 0 ],
+					"source" : [ "obj-19", 0 ]
 				}
 
 			}
@@ -953,6 +1024,13 @@
 			}
 , 			{
 				"patchline" : 				{
+					"destination" : [ "obj-10", 0 ],
+					"source" : [ "obj-9", 0 ]
+				}
+
+			}
+, 			{
+				"patchline" : 				{
 					"destination" : [ "getbody", 0 ],
 					"source" : [ "url", 0 ]
 				}
@@ -961,10 +1039,18 @@
  ],
 		"dependency_cache" : [ 			{
 				"name" : "iv_finger_prints.js",
-				"bootpath" : "~/Documents/Projects/iv_curve_thingspeak",
+				"bootpath" : "~/Documents/Projects/IVcurve_tester_new/max",
 				"patcherrelativepath" : ".",
 				"type" : "TEXT",
 				"implicit" : 1
+			}
+, 			{
+				"name" : "ml.principle.mxo",
+				"type" : "iLaX"
+			}
+, 			{
+				"name" : "ml.scale.mxo",
+				"type" : "iLaX"
 			}
  ],
 		"autosave" : 0

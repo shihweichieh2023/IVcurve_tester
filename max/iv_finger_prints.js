@@ -3,9 +3,9 @@
 // Body format: "V1 I1, V2 I2, V3 I3, ... Vn In" (comma-separated pairs)
 // Outlets:
 // 0) F_ohmic   = [FF, Vmpp/Voc, Impp/Isc, Rs, Rsh, curvature_sum, area]
-// 1) basics    = [Voc, Isc, Vmpp, Impp]
-// 2) normCurve = [Vn0, In0, Vn1, In1, ...]  (64-point resampled)
-// 3) F_dimless = [FF, Vmpp/Voc, Impp/Isc, r_s, r_sh, curvature_sum, area]
+// 1) F_dimless = [FF, Vmpp/Voc, Impp/Isc, r_s, r_sh, curvature_sum, area]
+// 2) basics    = [Voc, Isc, Vmpp, Impp]
+// 3) normCurve = [Vn0, In0, Vn1, In1, ...]  (64-point resampled)
 
 autowatch = 1;
 inlets = 1;
@@ -110,13 +110,52 @@ function compute_and_output(){
 
   // Rs near Voc (small In), Rsh near Isc (low Vn)
   var near=[], low=[];
+  
+  // For Rs: find points with normalized current < 0.1 (near Voc)
   for (var j2=0;j2<In.length;j2++) if (In[j2]<0.1) near.push(j2);
-  if (near.length<3) near=[In.length-3, In.length-2, In.length-1];
+  // If not enough low-current points, use the last few points (highest voltage)
+  if (near.length<3) {
+    near = [];
+    var start = Math.max(0, In.length-5); // Use last 5 points for better stability
+    for (var k=start; k<In.length; k++) near.push(k);
+  }
+  
+  // For Rsh: find points with normalized voltage < 0.1 (near Isc)  
   for (var j3=0;j3<Vn.length;j3++) if (Vn[j3]<0.1) low.push(j3);
-  if (low.length<3) low=[0,1,2];
+  if (low.length<3) {
+    low = [];
+    var end = Math.min(5, Vn.length); // Use first 5 points for better stability
+    for (var k2=0; k2<end; k2++) low.push(k2);
+  }
 
-  var dVdI_voc = lin_slope(I,V,near);  var Rs = -(dVdI_voc);
-  var dVdI_isc = lin_slope(I,V,low);   var Rsh= -(dVdI_isc);
+  // Calculate slopes with better error handling
+  var dVdI_voc = lin_slope(I,V,near);  
+  var dVdI_isc = lin_slope(I,V,low);   
+  
+  // Debug output for Rs calculation
+  post("=== Rs Calculation Debug ===\n");
+  post("Points used for Rs (near Voc): " + near.length + " points\n");
+  for (var debug_i=0; debug_i<near.length; debug_i++) {
+    var idx = near[debug_i];
+    post("  Point " + debug_i + ": V=" + V[idx].toFixed(3) + "V, I=" + I[idx].toFixed(6) + "A, Vn=" + Vn[idx].toFixed(3) + ", In=" + In[idx].toFixed(3) + "\n");
+  }
+  post("Raw dV/dI slope: " + dVdI_voc.toFixed(2) + "\n");
+  
+  // Rs should be positive for a real solar cell
+  var Rs = Math.abs(dVdI_voc);  // Take absolute value to ensure positive Rs
+  var Rsh = Math.abs(dVdI_isc); // Take absolute value to ensure positive Rsh
+  
+  post("Calculated Rs: " + Rs.toFixed(2) + " ohms\n");
+  
+  // More restrictive validation: Rs should be reasonable for solar cells
+  if (!isFinite(Rs) || Rs > 1000) {
+    post("WARNING: Rs value " + Rs.toFixed(2) + " is abnormally high, setting to 0\n");
+    Rs = 0;
+  }
+  if (!isFinite(Rsh) || Rsh > 100000) {
+    post("WARNING: Rsh value " + Rsh.toFixed(2) + " is abnormally high, setting to 0\n");
+    Rsh = 0;
+  }
 
   var scale = Isc/Voc;
   var rs = scale*(-dVdI_voc);
@@ -133,12 +172,11 @@ function compute_and_output(){
   var area = trapz(VN,INu);
 
   outlet(0, [FF, Vmpp/Voc, Impp/Isc, Rs, Rsh, curv, area]);
-  outlet(1, [Voc, Isc, Vmpp, Impp]);
+  outlet(1, [FF, Vmpp/Voc, Impp/Isc, rs, rsh, curv, area]);
 
   var flat=[]; for (var q=0;q<VN.length;q++){ flat.push(VN[q]); flat.push(INu[q]); }
-  outlet(2, flat);
-
-  outlet(3, [FF, Vmpp/Voc, Impp/Isc, rs, rsh, curv, area]);
+  outlet(2, [Voc, Isc, Vmpp, Impp]);
+  outlet(3, flat);
 }
 
 // helpers
